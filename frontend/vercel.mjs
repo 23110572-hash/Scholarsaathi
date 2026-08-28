@@ -1,3 +1,5 @@
+import { routes } from '@vercel/config/v1'
+
 const rawBackendApiUrl = process.env.BACKEND_API_URL?.trim()
 
 if (!rawBackendApiUrl) {
@@ -17,13 +19,7 @@ export const config = {
   buildCommand: 'npm run build',
   outputDirectory: 'dist',
   rewrites: [
-    {
-      source: '/api/:path*',
-      destination: `${backendOrigin}/api/:path*`,
-    },
-    {
-      source: '/:path*',
-      destination: '/index.html',
-    },
+    routes.rewrite('/api/:path*', `${backendOrigin}/api/:path*`),
+    routes.rewrite('/:path*', '/index.html'),
   ],
 }
