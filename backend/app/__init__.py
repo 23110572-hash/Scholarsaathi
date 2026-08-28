@@ -1,0 +1,1 @@
+"""ScholarSaathi backend application."""
