@@ -143,7 +143,7 @@ export function EligibilityAssistant() {
   const suggestedQuestions = useMemo(
     () => scholarshipId
       ? ['What are the main eligibility requirements?', 'Which documents are required?']
-      : ['I study BTech in Odisha. Which scholarships could fit me?', 'What details do you need to check my eligibility?'],
+      : ['What details do you need to check my eligibility?'],
     [scholarshipId],
   )
 
@@ -284,6 +284,14 @@ export function EligibilityAssistant() {
               placeholder={scholarshipId ? 'Ask about this scholarship…' : 'Describe your studies and eligibility details…'}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  if (!loading && draft.trim().length >= 3) {
+                    void submitQuestion(event as unknown as FormEvent)
+                  }
+                }
+              }}
               disabled={loading}
               required
             />
