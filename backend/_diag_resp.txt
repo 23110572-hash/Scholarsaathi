@@ -1,0 +1,1 @@
+{"detail":"The AI service is temporarily unavailable. No assessment was stored."}

@@ -1188,8 +1188,8 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
 }
 .ai-assistant-launcher {
   display: flex;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 5rem;
+  height: 5rem;
   padding: 0;
   overflow: hidden;
   align-items: center;
