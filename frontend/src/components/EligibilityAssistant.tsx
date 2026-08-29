@@ -246,7 +246,7 @@ export function EligibilityAssistant() {
             <div className="ai-message ai-message-assistant">
               <p>{scholarshipId
                 ? 'Ask me about eligibility, benefits, dates, documents, or the application process. I answer from provider-confirmed information.'
-                : 'Tell me your state, course, study year, marks, family-income range, and category. I’ll compare your details with provider-confirmed scholarship information.'}</p>
+                : 'Hello! I am your ScholarSaathi assistant, which scholarship do you want to search today?'}</p>
             </div>
 
             {turns.map((turn) => (

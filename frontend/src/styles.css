@@ -2306,6 +2306,8 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   overflow: hidden;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
+  width: min(480px, calc(100vw - 2rem)) !important;
+  height: min(700px, calc(100vh - 7rem));
 }
 
 @media (max-width: 420px) {
