@@ -1188,21 +1188,22 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
 }
 .ai-assistant-launcher {
   display: flex;
-  min-width: 3.75rem;
-  min-height: 3.75rem;
-  padding: 0 1rem;
+  width: 3.75rem;
+  height: 3.75rem;
   align-items: center;
   justify-content: center;
-  gap: .55rem;
   color: #fff;
-  background: var(--green);
-  border: 2px solid #fff;
-  border-radius: 999px;
-  box-shadow: 0 12px 30px rgba(24, 31, 35, .28);
-  font-size: .78rem;
-  font-weight: 800;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 12px 30px rgba(255, 153, 51, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.ai-assistant-launcher:hover { background: #60242e; }
+.ai-assistant-launcher:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(255, 153, 51, 0.5);
+  background: linear-gradient(135deg, #e67e22, #d35400); 
+}
 .ai-assistant-launcher svg { width: 1.45rem; height: 1.45rem; }
 .ai-assistant-panel {
   position: absolute;

@@ -290,7 +290,6 @@ export function EligibilityAssistant() {
               <SendIcon />
             </button>
           </form>
-          <p className="ai-advisory">AI guidance is not an official eligibility decision. Verify with the provider before applying.</p>
         </aside>
       )}
 
@@ -304,7 +303,6 @@ export function EligibilityAssistant() {
         aria-controls="eligibility-assistant-panel"
       >
         {open ? <CloseIcon /> : <ChatIcon />}
-        {!open && <span>Ask AI</span>}
       </button>
     </div>
   )
