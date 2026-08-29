@@ -25,8 +25,8 @@ export function SiteBrand({ compact = false }: SiteBrandProps) {
       />
       {!compact && (
         <span className="grid leading-none">
-          <strong className="text-lg font-semibold tracking-tight text-[#152019]">ScholarSaathi</strong>
-          <small className="mt-1 text-xs font-medium tracking-wide uppercase text-[#5b6862]">Scholarship companion</small>
+          <strong className="text-[0.98rem] font-semibold tracking-[-0.035em] text-[#ffffff] drop-shadow-md">ScholarSaathi</strong>
+          <small className="mt-1 text-[0.58rem] font-semibold tracking-[0.14em] uppercase text-[#d9e2dc] drop-shadow-md">Scholarship companion</small>
         </span>
       )}
     </Link>
@@ -78,7 +78,7 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
   const accountLinkClass = 'inline-flex min-h-10 items-center gap-2 rounded-full border border-[#ccd5e6] bg-white px-4 text-xs font-semibold text-[#16305e] transition hover:bg-[#eaeef7]'
 
   return (
-    <header className="sticky inset-x-0 top-0 z-40 border-b border-[#dbe2ee] bg-white/95 px-4 py-3 shadow-[0_4px_20px_rgba(16,38,92,0.05)] backdrop-blur-xl sm:px-7">
+    <header className={isHero ? 'absolute inset-x-0 top-0 z-30 px-4 py-4 sm:px-7 sm:py-5' : 'sticky top-0 z-40 border-b border-white/10 bg-[#020817]/95 px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:px-7'}>
       <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
         <SiteBrand />
 

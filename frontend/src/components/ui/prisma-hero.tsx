@@ -28,24 +28,34 @@ export const PrismaHero = () => {
         <SiteNavigation variant="hero" />
 
         {/* Hero content */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 pb-8 sm:px-8 md:px-12 lg:pb-16 flex justify-center">
-          <div className="w-full max-w-[90rem] flex flex-col items-start justify-end gap-6">
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 md:px-10 lg:pb-12">
+          <div className="grid grid-cols-12 items-start gap-4 h-full pt-[20vh] sm:pt-[25vh] md:pt-[30vh]">
             
-            <p className="text-sm text-[#F6F8FB]/95 sm:text-base md:text-lg lg:text-xl font-light drop-shadow-lg max-w-2xl" style={{ lineHeight: 1.5 }}>
-              Students are searching for scholarships. Find the perfect scholarship for your studies in the cloud. Let ScholarSaathi guide you through the opportunities and help you secure your future.
-            </p>
+            <div className="col-span-12 lg:col-span-7">
+              <h1
+                className="font-semibold leading-[0.85] tracking-[-0.05em] text-[12vw] sm:text-[10vw] md:text-[8vw] lg:text-[7vw] xl:text-[6.5vw] text-white drop-shadow-2xl"
+              >
+                ScholarSaathi<span className="text-[0.4em] align-top relative top-[-0.2em]">*</span>
+              </h1>
+            </div>
 
-            <h1 className="font-semibold leading-[0.85] tracking-[-0.05em] text-[12vw] sm:text-[10vw] md:text-[9vw] lg:text-[8vw] xl:text-[7vw] text-white drop-shadow-2xl">
-              ScholarSaathi<span className="text-[0.4em] align-top relative top-[-0.2em]">*</span>
-            </h1>
+            <div className="col-span-12 flex flex-col gap-5 lg:col-span-5 lg:pt-0 self-start mt-[-2rem] sm:mt-[-4rem] md:mt-[-6rem] lg:mt-[-10rem] xl:mt-[-12rem] relative z-10">
+              
+              <p
+                className="text-sm text-[#F6F8FB]/95 sm:text-base md:text-lg lg:text-xl font-light drop-shadow-lg max-w-xl"
+                style={{ lineHeight: 1.5 }}
+              >
+                Students are searching for scholarships. Find the perfect scholarship for your studies in the cloud. Let ScholarSaathi guide you through the opportunities and help you secure your future.
+              </p>
 
-            <Link to="/scholarships" className="mt-2 group inline-flex items-center gap-2 rounded-full bg-[#FFFFFF] py-1.5 pl-6 pr-1.5 text-sm font-semibold text-black transition-all hover:gap-4 hover:bg-gray-100 sm:text-base shadow-xl hover:shadow-2xl">
-              Find Scholarships
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black transition-transform group-hover:scale-110 sm:h-12 sm:w-12">
-                <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-[#FFFFFF]" />
-              </span>
-            </Link>
+              <Link to="/scholarships" className="group inline-flex items-center gap-2 self-start rounded-full bg-[#FFFFFF] py-1 pl-5 pr-1 text-sm font-medium text-black transition-all hover:gap-3 hover:bg-gray-100 sm:text-base shadow-lg hover:shadow-xl">
+                Find Scholarships
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black transition-transform group-hover:scale-110 sm:h-10 sm:w-10">
+                  <ArrowRight className="h-4 w-4 text-[#FFFFFF]" />
+                </span>
+              </Link>
 
+            </div>
           </div>
         </div>
       </div>
