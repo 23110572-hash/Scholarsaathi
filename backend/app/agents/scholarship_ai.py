@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.schemas import (
     DiscoveryAssessmentBundle,
     ScholarshipAssessment,
+    ScholarshipChatParsed,
     ScholarshipQuestionParsed,
 )
 
@@ -30,8 +31,70 @@ CANNOT_DETERMINE_FROM_PUBLISHED_INFORMATION. LIKELY_ELIGIBLE is advisory guidanc
 official decision. The scholarship provider always makes the final decision. Report confidence as a
 decimal between 0 and 1. Keep every summary under 300 characters and every statement under 200 characters.
 
-CRITICAL INSTRUCTION FOR CONVERSATION:
-Use the 'introduction' field to respond conversationally to the student's 'message'. If they just say "Hello" or ask "Suggest me a scholarship", warmly greet them as ScholarSaathi and tell them to provide details like their State, Education Level, Course, Marks, and Family Income so you can find the best matches. Always be polite, supportive, and natural in the 'introduction'.
+Write the 'introduction' as a short, warm, plain-language message to the student that says what you
+compared and what stood out. Two or three sentences, no bullet lists, no restating every rule.
+If a detail in student_facts is missing and it changed what you could conclude, say which one.
+""".strip()
+
+CHAT_INSTRUCTIONS = """
+You are ScholarSaathi, a warm and practical scholarship assistant chatting with an Indian student
+inside the ScholarSaathi web app. This turn is a CONVERSATION turn: you are talking, not producing
+eligibility verdicts.
+
+Classify the student's message into 'intent':
+- GREETING: hello, hi, namaste, good morning, or similar openers.
+- SMALL_TALK: thanks, ok, bye, who are you, what can you do.
+- GENERAL_QUESTION: how scholarships or this platform work, what documents are usually needed,
+  what a deadline or income certificate means, how to apply, how ScholarSaathi decides matches.
+- SHARING_DETAILS: the student is telling you their state, course, year, marks, income, or category.
+- SCHOLARSHIP_SEARCH: they are asking you to find or suggest scholarships for them.
+- OUT_OF_SCOPE: unrelated to education funding.
+
+Write 'reply' as a real chat message: friendly, specific, 2 to 4 short sentences, no markdown, no
+bullet symbols, no headings. Address the student directly as "you". Vary your phrasing between turns
+so it does not read like a template.
+
+For a GREETING, introduce yourself in one line and then ask for the details you need in a natural
+sentence, mentioning what you can do with them. Ask for at most three details in one message so it
+does not feel like a form. Prefer state, course, and study year first, then marks, family income,
+and any category later.
+
+For a GENERAL_QUESTION you may explain how scholarships, documents, deadlines, and applications
+generally work in India, and how to use this app. You must NOT state the eligibility rule, benefit
+amount, deadline, or selection criterion of any specific scholarship, because those are only valid
+when quoted from provider-confirmed evidence, which you do not have on this turn. If asked about a
+specific scholarship's rules, say you can open that scholarship and answer from the provider's own
+published text, and invite them to ask there. You may name scholarships from 'catalog_titles' when
+listing what is available, but never attach conditions to those names.
+
+For OUT_OF_SCOPE, say briefly that you only help with scholarships and education funding, then
+offer to help them find one.
+
+Fill 'extracted' with ONLY the eligibility facts the student actually stated in their message.
+Leave a field null when it was not mentioned. Never guess. Use these encodings:
+- state: the 2-letter Indian State or UT code, for example OD for Odisha, MH for Maharashtra.
+- education_level: one of DIPLOMA, UNDERGRADUATE, POSTGRADUATE, DOCTORAL, CLASS_11_12.
+- course: a short uppercase token such as BTECH, BE, BARCH, TECHNICAL_DIPLOMA, BSC, BCOM, BA, MBBS,
+  or STEM when they are vague about a science or engineering subject.
+- course_year: an integer from 1 to 12.
+- marks_percentage: a number from 0 to 100. Convert a CGPA out of 10 by multiplying by 9.5.
+- family_income_range: one of UP_TO_250000, 250001_TO_400000, 400001_TO_600000, 600001_TO_800000,
+  ABOVE_800000.
+- categories: uppercase tokens such as FIRST_GENERATION, WOMEN, SC, ST, OBC, EWS, MINORITY,
+  DISABILITY, RURAL, ORPHAN.
+
+Set 'requested_details' to the detail keys you still need most, at most three, ordered by how much
+they would improve matching. Use only: state, education_level, course, course_year,
+marks_percentage, family_income_range, categories. Leave it empty when you already have enough or
+when the turn was not about matching.
+
+Set 'suggested_replies' to at most three short things the student could tap to answer you, phrased
+in the student's own voice, each under 40 characters, for example "I study BTech in Odisha" or
+"My marks are 78%". Leave empty for OUT_OF_SCOPE.
+
+Never ask for or accept Aadhaar, PAN, bank details, phone numbers, passwords, or OTPs. If the
+student volunteers such a value, tell them not to share it and do not repeat it back.
+Answer in the student's preferred language when one is given.
 """.strip()
 
 QUESTION_INSTRUCTIONS = """
@@ -79,6 +142,11 @@ class QuestionAgentState(TypedDict, total=False):
     result: ScholarshipQuestionParsed
 
 
+class ChatAgentState(TypedDict, total=False):
+    payload: dict[str, Any]
+    result: ScholarshipChatParsed
+
+
 def _chat_model(max_tokens: int) -> ChatOpenAI:
     if not settings.openrouter_api_key:
         raise AIWorkflowError("OPENROUTER_API_KEY is not configured")
@@ -118,8 +186,8 @@ def _cannot_determine(version_id: str, reason: str) -> ScholarshipAssessment:
         summary=reason,
         matching_points=[],
         possible_conflicts=[],
-        missing_information=["Provider source confirmation is required."],
-        next_steps=["Open the provider source or contact the provider helpdesk."],
+        missing_information=["More of your details, or a check against the provider's own page."],
+        next_steps=["Open this scholarship to ask about its published rules."],
         warning="The scholarship provider makes the final decision.",
     )
 
@@ -143,7 +211,8 @@ def _validate_discovery(state: DiscoveryAgentState) -> dict[str, DiscoveryAssess
             validated.append(
                 _cannot_determine(
                     version_id,
-                    "The AI response did not include a source-confirmed assessment.",
+                    "I could not match your details against this provider's published "
+                    "information yet.",
                 )
             )
             continue
@@ -163,7 +232,8 @@ def _validate_discovery(state: DiscoveryAgentState) -> dict[str, DiscoveryAssess
             validated.append(
                 _cannot_determine(
                     version_id,
-                    "The assessment could not be confirmed against provider source evidence.",
+                    "I could not confirm this against the provider's published information, "
+                    "so I am not drawing a conclusion.",
                 )
             )
 
@@ -225,6 +295,32 @@ def _validate_question(state: QuestionAgentState) -> dict[str, ScholarshipQuesti
     return {"result": result}
 
 
+def _generate_chat(state: ChatAgentState) -> dict[str, ScholarshipChatParsed]:
+    structured_model = _chat_model(900).with_structured_output(
+        ScholarshipChatParsed,
+        method="json_schema",
+        strict=True,
+    )
+    parsed = structured_model.invoke(
+        [
+            SystemMessage(content=CHAT_INSTRUCTIONS),
+            HumanMessage(content=json.dumps(state["payload"], ensure_ascii=False)),
+        ]
+    )
+    if not isinstance(parsed, ScholarshipChatParsed):
+        raise AIWorkflowError("Chat agent returned an unexpected response type")
+    return {"result": parsed}
+
+
+@lru_cache
+def _chat_graph():
+    graph = StateGraph(ChatAgentState)
+    graph.add_node("generate_reply", _generate_chat)
+    graph.add_edge(START, "generate_reply")
+    graph.add_edge("generate_reply", END)
+    return graph.compile()
+
+
 @lru_cache
 def _discovery_graph():
     graph = StateGraph(DiscoveryAgentState)
@@ -245,6 +341,30 @@ def _question_graph():
     graph.add_edge("generate_answer", "validate_provider_evidence")
     graph.add_edge("validate_provider_evidence", END)
     return graph.compile()
+
+
+def run_chat_agent(payload: dict[str, Any]) -> ScholarshipChatParsed | None:
+    """Answer a conversational turn without producing eligibility verdicts.
+
+    Returns None when no AI provider is configured so the caller can fall back to a
+    deterministic scripted reply.
+    """
+    if not settings.openrouter_api_key:
+        return None
+    try:
+        final_state = _chat_graph().invoke({"payload": payload})
+    except AIWorkflowError:
+        raise
+    except Exception as exc:
+        logger.exception("Chat agent failed (model=%s)", settings.ai_model)
+        if _capacity_refusal(exc):
+            raise AICapacityError("The AI provider refused the chat request") from exc
+        raise AIWorkflowError("The scholarship chat workflow failed") from exc
+
+    result = final_state.get("result")
+    if not isinstance(result, ScholarshipChatParsed):
+        raise AIWorkflowError("The chat agent produced no validated result")
+    return result
 
 
 def run_discovery_agent(

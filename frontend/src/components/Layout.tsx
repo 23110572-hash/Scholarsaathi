@@ -6,7 +6,8 @@ export function Layout({ children }: PropsWithChildren) {
   const location = useLocation()
   const isHome = location.pathname === '/'
   const isProvider = location.pathname === '/providers'
-  const showFooter = !isHome && !isProvider && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
+  const isOrganization = location.pathname.startsWith('/organization')
+  const showFooter = !isHome && !isProvider && !isOrganization && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
 
   return (
     <div className="site-shell">

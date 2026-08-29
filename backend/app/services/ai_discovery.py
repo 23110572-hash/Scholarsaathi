@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.scholarship_ai import (
     AICapacityError,
+    run_chat_agent,
     run_discovery_agent,
     run_question_agent,
 )
@@ -18,6 +19,7 @@ from app.core.config import get_settings
 from app.models import KnowledgeChunk, Scholarship, ScholarshipVersion
 from app.presenters import scholarship_card
 from app.schemas import (
+    ChatExtractedFacts,
     DiscoveryProfile,
     DiscoveryResponse,
     ScholarshipQuestionRequest,
@@ -74,6 +76,108 @@ def _plan_discovery_request(
     return [], 0
 
 
+# Facts that make an eligibility assessment meaningful. Without at least one of these the
+# assistant has nothing to compare against provider evidence, so assessing every catalog
+# candidate would only produce "cannot determine" noise.
+_ELIGIBILITY_FIELDS = (
+    "state",
+    "education_level",
+    "course",
+    "course_year",
+    "marks_percentage",
+    "family_income_range",
+)
+
+
+def _has_eligibility_facts(profile: DiscoveryProfile) -> bool:
+    if any(getattr(profile, name) is not None for name in _ELIGIBILITY_FIELDS):
+        return True
+    return bool(profile.categories)
+
+
+def _scripted_chat_reply() -> DiscoveryResponse:
+    """Deterministic conversational reply used when the AI provider is unavailable."""
+    return DiscoveryResponse(
+        ai_available=False,
+        model=None,
+        notice="AI chat is not configured, so this is a standard reply.",
+        candidates=[],
+        introduction=(
+            "Hello, I am ScholarSaathi. Tell me your State or UT, your course, and your "
+            "current study year, and I will look for scholarships that fit you."
+        ),
+        assessments=[],
+        mode="CONVERSATION",
+        intent="GREETING",
+        requested_details=["state", "course", "course_year"],
+        suggested_replies=[
+            "I study BTech in Odisha",
+            "I am in my 2nd year",
+            "What details do you need?",
+        ],
+        extracted=ChatExtractedFacts(),
+    )
+
+
+def _conversation_response(
+    db: Session,
+    profile: DiscoveryProfile,
+) -> DiscoveryResponse:
+    """Handle a turn that carries no eligibility facts as pure conversation.
+
+    No candidates and no assessments are returned, so a greeting or a general question
+    never renders a wall of indeterminate scholarship cards.
+    """
+    if not settings.openrouter_api_key:
+        return _scripted_chat_reply()
+
+    # Titles only. The chat agent is explicitly barred from attaching conditions to them,
+    # so it needs no evidence and stays cheap.
+    titles = db.execute(
+        published_scholarship_query().order_by(ScholarshipVersion.application_deadline_at).limit(12)
+    ).all()
+    catalog_titles = [
+        f"{version.title} — {organization.display_name}" for _, version, organization in titles
+    ]
+
+    try:
+        parsed = run_chat_agent(
+            {
+                "message": profile.message,
+                "preferred_language": profile.preferred_language,
+                "known_student_facts": profile.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    exclude={"message", "preferred_language"},
+                ),
+                "catalog_titles": catalog_titles,
+                "catalog_count": len(catalog_titles),
+            }
+        )
+    except AICapacityError:
+        return _scripted_chat_reply()
+
+    if parsed is None:
+        return _scripted_chat_reply()
+
+    return DiscoveryResponse(
+        ai_available=True,
+        model=settings.ai_model,
+        notice=(
+            "Share a few details and I will compare them against provider-confirmed "
+            "scholarship information."
+        ),
+        candidates=[],
+        introduction=parsed.reply,
+        assessments=[],
+        mode="CONVERSATION",
+        intent=parsed.intent,
+        requested_details=parsed.requested_details,
+        suggested_replies=parsed.suggested_replies,
+        extracted=parsed.extracted,
+    )
+
+
 def _candidate_query(profile: DiscoveryProfile):
     query = published_scholarship_query()
     if profile.state:
@@ -98,6 +202,11 @@ def _candidate_query(profile: DiscoveryProfile):
 
 
 def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryResponse:
+    # A greeting or a general question carries no eligibility facts. Answer it as chat
+    # rather than assessing the whole catalog against nothing.
+    if not _has_eligibility_facts(profile):
+        return _conversation_response(db, profile)
+
     rows = db.execute(_candidate_query(profile)).all()
     cards = [scholarship_card(*row) for row in rows]
 
@@ -107,7 +216,11 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             model=settings.ai_model if settings.openrouter_api_key else None,
             notice="No active published scholarships matched the initial search scope.",
             candidates=[],
-            introduction="Try broadening the state, course, or education-level information.",
+            introduction=(
+                "I could not find a published scholarship matching those details yet. Try a "
+                "wider course or education level, or leave the State blank to see all-India "
+                "programmes."
+            ),
             assessments=[],
         )
 
@@ -218,13 +331,18 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             assessments=[],
         )
 
-    notice = "AI assessments use only provider-confirmed evidence and are not official decisions."
+    notice = "Assessments use only provider-confirmed information and are not official decisions."
     if len(assessed) < len(candidate_payload):
         notice = (
-            f"AI assessed the {len(assessed)} nearest-deadline scholarships using only "
-            f"provider-confirmed evidence. All {len(candidate_payload)} catalog candidates "
-            "are listed, and assessments are not official decisions."
+            f"I looked closely at the {len(assessed)} nearest deadlines out of "
+            f"{len(candidate_payload)} matching scholarships, using only provider-confirmed "
+            "information. These are not official decisions."
         )
+
+    # Keep the conversation moving: name the details that would sharpen the next pass.
+    missing = [name for name in _ELIGIBILITY_FIELDS if getattr(profile, name) is None]
+    if not profile.categories:
+        missing.append("categories")
 
     return DiscoveryResponse(
         ai_available=True,
@@ -233,6 +351,10 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         candidates=cards,
         introduction=parsed.introduction,
         assessments=parsed.assessments,
+        mode="ASSESSMENT",
+        intent="SCHOLARSHIP_SEARCH",
+        requested_details=missing[:3],
+        suggested_replies=[],
     )
 
 

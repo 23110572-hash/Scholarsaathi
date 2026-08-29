@@ -257,6 +257,72 @@ class DiscoveryAssessmentBundle(APIModel):
     assessments: list[ScholarshipAssessment]
 
 
+ChatIntent = Literal[
+    "GREETING",
+    "SMALL_TALK",
+    "GENERAL_QUESTION",
+    "SHARING_DETAILS",
+    "SCHOLARSHIP_SEARCH",
+    "OUT_OF_SCOPE",
+]
+
+# Detail keys the assistant may ask a student for. Constrained to a closed set so the
+# frontend can label them and merge them into the running profile safely.
+ChatDetailKey = Literal[
+    "state",
+    "education_level",
+    "course",
+    "course_year",
+    "marks_percentage",
+    "family_income_range",
+    "categories",
+]
+
+
+class ChatExtractedFacts(APIModel):
+    """Eligibility facts the student mentioned in this turn, if any.
+
+    The assistant fills only what was actually stated. The frontend merges these into a
+    running profile so a conversation can build up details across several short messages.
+    """
+
+    state: str | None = None
+    education_level: str | None = None
+    course: str | None = None
+    course_year: int | None = Field(default=None, ge=1, le=12)
+    marks_percentage: float | None = Field(default=None, ge=0, le=100)
+    family_income_range: str | None = None
+    categories: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize(self) -> ChatExtractedFacts:
+        if self.state:
+            self.state = self.state.strip().upper()[:2] or None
+        if self.education_level:
+            self.education_level = self.education_level.strip().upper()
+        if self.course:
+            self.course = self.course.strip().upper()
+        if self.family_income_range:
+            self.family_income_range = self.family_income_range.strip().upper()
+        self.categories = list(
+            dict.fromkeys(
+                value.strip().upper() for value in self.categories if value and value.strip()
+            )
+        )
+        return self
+
+
+class ScholarshipChatParsed(APIModel):
+    intent: ChatIntent
+    reply: str
+    requested_details: list[ChatDetailKey] = Field(default_factory=list)
+    suggested_replies: list[str] = Field(default_factory=list)
+    extracted: ChatExtractedFacts
+
+
+DiscoveryMode = Literal["CONVERSATION", "ASSESSMENT"]
+
+
 class DiscoveryResponse(APIModel):
     ai_available: bool
     model: str | None
@@ -264,6 +330,13 @@ class DiscoveryResponse(APIModel):
     candidates: list[ScholarshipCard]
     introduction: str | None = None
     assessments: list[ScholarshipAssessment] = Field(default_factory=list)
+    # CONVERSATION turns carry a reply with no candidates or assessments, so the chat can
+    # greet and gather details without dumping indeterminate scholarship cards.
+    mode: DiscoveryMode = "ASSESSMENT"
+    intent: ChatIntent | None = None
+    requested_details: list[ChatDetailKey] = Field(default_factory=list)
+    suggested_replies: list[str] = Field(default_factory=list)
+    extracted: ChatExtractedFacts | None = None
 
 
 class SavedScholarshipResponse(APIModel):
