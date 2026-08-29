@@ -11,7 +11,7 @@ export function Layout({ children }: PropsWithChildren) {
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      {!isHome && !isProvider && <SiteNavigation variant="shell" />}
+      {!isHome && <SiteNavigation variant="shell" />}
       <div id="main-content" tabIndex={-1}>{children}</div>
       {showFooter && (
         <footer className="border-t-4 border-[#ff9933] bg-[#f7f9fd] px-5 py-10 text-[#101827] sm:px-8">
