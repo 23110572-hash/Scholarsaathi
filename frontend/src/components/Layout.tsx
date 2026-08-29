@@ -7,7 +7,7 @@ import { MenuIcon } from './Icons'
 export function Brand() {
   return (
     <Link className="brand" to="/" aria-label="ScholarSaathi home">
-      <img src="/logo.png" alt="ScholarSaathi Logo" style={{ height: '40px' }} />
+      <img src="/logo.png" alt="ScholarSaathi Logo" style={{ height: '80px', objectFit: 'contain' }} />
     </Link>
   )
 }
