@@ -302,7 +302,7 @@ export function EligibilityAssistant() {
         aria-expanded={open}
         aria-controls="eligibility-assistant-panel"
       >
-        {open ? <CloseIcon /> : <ChatIcon />}
+        {open ? <CloseIcon /> : <img src="/ai-logo.png" alt="Ask AI" className="ai-launcher-logo" />}
       </button>
     </div>
   )
