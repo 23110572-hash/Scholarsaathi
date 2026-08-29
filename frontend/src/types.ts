@@ -151,6 +151,34 @@ export interface ScholarshipAssessment {
   warning: string
 }
 
+export type ChatIntent =
+  | 'GREETING'
+  | 'SMALL_TALK'
+  | 'GENERAL_QUESTION'
+  | 'SHARING_DETAILS'
+  | 'SCHOLARSHIP_SEARCH'
+  | 'OUT_OF_SCOPE'
+
+export type ChatDetailKey =
+  | 'state'
+  | 'education_level'
+  | 'course'
+  | 'course_year'
+  | 'marks_percentage'
+  | 'family_income_range'
+  | 'categories'
+
+/** Eligibility facts the assistant picked out of the student's own words this turn. */
+export interface ChatExtractedFacts {
+  state: string | null
+  education_level: string | null
+  course: string | null
+  course_year: number | null
+  marks_percentage: number | null
+  family_income_range: string | null
+  categories: string[]
+}
+
 export interface DiscoveryResponse {
   ai_available: boolean
   model: string | null
@@ -158,6 +186,12 @@ export interface DiscoveryResponse {
   candidates: Scholarship[]
   introduction: string | null
   assessments: ScholarshipAssessment[]
+  /** CONVERSATION turns carry a reply only: no candidates, no assessments. */
+  mode: 'CONVERSATION' | 'ASSESSMENT'
+  intent: ChatIntent | null
+  requested_details: ChatDetailKey[]
+  suggested_replies: string[]
+  extracted: ChatExtractedFacts | null
 }
 
 export interface ScholarshipQuestionResponse {

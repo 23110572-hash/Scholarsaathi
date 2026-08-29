@@ -20,7 +20,24 @@ from app.schemas import (
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-DISCOVERY_INSTRUCTIONS = """
+FACT_EXTRACTION_RULES = """
+Fill 'extracted' with ONLY the eligibility facts the student actually stated in their own message
+on this turn. Leave a field null when it was not mentioned. Never guess and never copy a value from
+facts that were already known. Use these encodings:
+- state: the 2-letter Indian State or UT code, for example OD for Odisha, MH for Maharashtra.
+- education_level: one of DIPLOMA, UNDERGRADUATE, POSTGRADUATE, DOCTORAL, CLASS_11_12.
+- course: a short uppercase token such as BTECH, BE, BARCH, TECHNICAL_DIPLOMA, BSC, BCOM, BA, MBBS,
+  or STEM when they are vague about a science or engineering subject.
+- course_year: an integer from 1 to 12. "2nd year" is 2.
+- marks_percentage: a number from 0 to 100. Convert a CGPA out of 10 by multiplying by 9.5.
+- family_income_range: one of UP_TO_250000, 250001_TO_400000, 400001_TO_600000, 600001_TO_800000,
+  ABOVE_800000. "around 3 lakh" is 250001_TO_400000.
+- categories: uppercase tokens such as FIRST_GENERATION, WOMEN, SC, ST, OBC, EWS, MINORITY,
+  DISABILITY, RURAL, ORPHAN.
+""".strip()
+
+DISCOVERY_INSTRUCTIONS = (
+    """
 You are ScholarSaathi, an evidence-grounded scholarship discovery assistant chatting directly with a student.
 You receive temporary, non-identifying student facts and candidate scholarships from the
 ScholarSaathi database. Assess every candidate independently using only the supplied,
@@ -34,9 +51,14 @@ decimal between 0 and 1. Keep every summary under 300 characters and every state
 Write the 'introduction' as a short, warm, plain-language message to the student that says what you
 compared and what stood out. Two or three sentences, no bullet lists, no restating every rule.
 If a detail in student_facts is missing and it changed what you could conclude, say which one.
+Address the student directly as "you" and vary your phrasing between turns.
 """.strip()
+    + "\n\n"
+    + FACT_EXTRACTION_RULES
+)
 
-CHAT_INSTRUCTIONS = """
+CHAT_INSTRUCTIONS = (
+    """
 You are ScholarSaathi, a warm and practical scholarship assistant chatting with an Indian student
 inside the ScholarSaathi web app. This turn is a CONVERSATION turn: you are talking, not producing
 eligibility verdicts.
@@ -70,19 +92,6 @@ listing what is available, but never attach conditions to those names.
 For OUT_OF_SCOPE, say briefly that you only help with scholarships and education funding, then
 offer to help them find one.
 
-Fill 'extracted' with ONLY the eligibility facts the student actually stated in their message.
-Leave a field null when it was not mentioned. Never guess. Use these encodings:
-- state: the 2-letter Indian State or UT code, for example OD for Odisha, MH for Maharashtra.
-- education_level: one of DIPLOMA, UNDERGRADUATE, POSTGRADUATE, DOCTORAL, CLASS_11_12.
-- course: a short uppercase token such as BTECH, BE, BARCH, TECHNICAL_DIPLOMA, BSC, BCOM, BA, MBBS,
-  or STEM when they are vague about a science or engineering subject.
-- course_year: an integer from 1 to 12.
-- marks_percentage: a number from 0 to 100. Convert a CGPA out of 10 by multiplying by 9.5.
-- family_income_range: one of UP_TO_250000, 250001_TO_400000, 400001_TO_600000, 600001_TO_800000,
-  ABOVE_800000.
-- categories: uppercase tokens such as FIRST_GENERATION, WOMEN, SC, ST, OBC, EWS, MINORITY,
-  DISABILITY, RURAL, ORPHAN.
-
 Set 'requested_details' to the detail keys you still need most, at most three, ordered by how much
 they would improve matching. Use only: state, education_level, course, course_year,
 marks_percentage, family_income_range, categories. Leave it empty when you already have enough or
@@ -96,6 +105,9 @@ Never ask for or accept Aadhaar, PAN, bank details, phone numbers, passwords, or
 student volunteers such a value, tell them not to share it and do not repeat it back.
 Answer in the student's preferred language when one is given.
 """.strip()
+    + "\n\n"
+    + FACT_EXTRACTION_RULES
+)
 
 QUESTION_INSTRUCTIONS = """
 You are ScholarSaathi, a friendly and conversational scholarship assistant chatting directly with a student.
@@ -241,6 +253,7 @@ def _validate_discovery(state: DiscoveryAgentState) -> dict[str, DiscoveryAssess
         "result": DiscoveryAssessmentBundle(
             introduction=parsed.introduction,
             assessments=validated,
+            extracted=parsed.extracted,
         )
     }
 

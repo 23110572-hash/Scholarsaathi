@@ -339,9 +339,15 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             "information. These are not official decisions."
         )
 
-    # Keep the conversation moving: name the details that would sharpen the next pass.
-    missing = [name for name in _ELIGIBILITY_FIELDS if getattr(profile, name) is None]
-    if not profile.categories:
+    # Keep the conversation moving: name the details that would sharpen the next pass,
+    # counting anything the model just read out of this turn's message as already supplied.
+    extracted = parsed.extracted
+    missing = [
+        name
+        for name in _ELIGIBILITY_FIELDS
+        if getattr(profile, name) is None and getattr(extracted, name, None) is None
+    ]
+    if not profile.categories and not extracted.categories:
         missing.append("categories")
 
     return DiscoveryResponse(
@@ -355,6 +361,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         intent="SCHOLARSHIP_SEARCH",
         requested_details=missing[:3],
         suggested_replies=[],
+        extracted=extracted,
     )
 
 

@@ -252,11 +252,6 @@ class ScholarshipAssessment(APIModel):
     warning: str
 
 
-class DiscoveryAssessmentBundle(APIModel):
-    introduction: str
-    assessments: list[ScholarshipAssessment]
-
-
 ChatIntent = Literal[
     "GREETING",
     "SMALL_TALK",
@@ -317,6 +312,14 @@ class ScholarshipChatParsed(APIModel):
     reply: str
     requested_details: list[ChatDetailKey] = Field(default_factory=list)
     suggested_replies: list[str] = Field(default_factory=list)
+    extracted: ChatExtractedFacts
+
+
+class DiscoveryAssessmentBundle(APIModel):
+    introduction: str
+    assessments: list[ScholarshipAssessment]
+    # Assessment turns also read facts out of the student's message, so a short reply like
+    # "my marks are 78%" is captured without spending a second model call.
     extracted: ChatExtractedFacts
 
 
