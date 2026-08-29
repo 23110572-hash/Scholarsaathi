@@ -12,6 +12,8 @@ import { ScholarshipCatalogPage } from './pages/ScholarshipCatalogPage'
 import { ScholarshipDetailPage } from './pages/ScholarshipDetailPage'
 import { StudentApplicationsPage } from './pages/StudentApplicationsPage'
 import { StudentDashboard } from './pages/StudentDashboard'
+import { StudentProfilePage } from './pages/StudentProfilePage'
+import { StudentSavedPage } from './pages/StudentSavedPage'
 
 function NotFound() {
   return (
@@ -39,6 +41,14 @@ export default function App() {
           <Route
             path="/student/applications"
             element={<ProtectedRoute realm="STUDENT"><StudentApplicationsPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/student/profile"
+            element={<ProtectedRoute realm="STUDENT"><StudentProfilePage /></ProtectedRoute>}
+          />
+          <Route
+            path="/student/saved"
+            element={<ProtectedRoute realm="STUDENT"><StudentSavedPage /></ProtectedRoute>}
           />
           <Route path="/scholarships/:scholarshipId" element={<ScholarshipDetailPage />} />
           <Route

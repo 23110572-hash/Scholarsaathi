@@ -6,6 +6,10 @@ interface ScholarshipCardProps {
   scholarship: Scholarship
   assessment?: ScholarshipAssessment | undefined
   onSave?: ((scholarshipId: string) => void) | undefined
+  /** Supplied alongside `saved` to turn the bookmark button into a toggle. */
+  onUnsave?: ((scholarshipId: string) => void) | undefined
+  saved?: boolean | undefined
+  busy?: boolean | undefined
 }
 
 const providerLabels: Record<string, string> = {
@@ -45,9 +49,22 @@ function formatCoverage(scholarship: Scholarship): string {
   return scholarship.applicable_state_codes.join(', ')
 }
 
-export function ScholarshipCard({ scholarship, assessment, onSave }: ScholarshipCardProps) {
+export function ScholarshipCard({
+  scholarship,
+  assessment,
+  onSave,
+  onUnsave,
+  saved = false,
+  busy = false,
+}: ScholarshipCardProps) {
   const deadline = formatDeadline(scholarship.application_deadline_at)
   const education = scholarship.education_levels.slice(0, 2).map(formatToken).join(' · ')
+  const canToggle = Boolean(onSave || onUnsave)
+  const bookmarkLabel = busy
+    ? 'Working…'
+    : saved
+      ? 'Saved'
+      : 'Save'
 
   return (
     <article className="modern-card">
@@ -98,14 +115,20 @@ export function ScholarshipCard({ scholarship, assessment, onSave }: Scholarship
           <Link className="modern-action-link" to={`/scholarships/${scholarship.id}`}>
             View full details <ArrowIcon />
           </Link>
-          {onSave && (
+          {canToggle && (
             <button
-              className="text-xs font-semibold text-slate-500 hover:text-orange-500 transition-colors flex items-center gap-1"
+              className={
+                saved
+                  ? 'modern-bookmark-button modern-bookmark-on'
+                  : 'modern-bookmark-button'
+              }
               type="button"
-              aria-label={`Save ${scholarship.title}`}
-              onClick={() => onSave(scholarship.id)}
+              disabled={busy}
+              aria-pressed={saved}
+              aria-label={`${saved ? 'Remove' : 'Save'} ${scholarship.title}`}
+              onClick={() => (saved ? onUnsave?.(scholarship.id) : onSave?.(scholarship.id))}
             >
-              <BookmarkIcon /> Save
+              <BookmarkIcon /> {bookmarkLabel}
             </button>
           )}
         </div>

@@ -31,6 +31,38 @@ export interface StudentRegistrationInput {
   preferred_language: string
 }
 
+export interface StateOption {
+  code: string
+  name: string
+  is_union_territory: boolean
+}
+
+/** Sent to PUT /api/student/profile. The endpoint replaces the whole profile, so every
+ *  field must be present on each save or omitted fields are cleared. */
+export interface StudentProfileInput {
+  full_name: string | null
+  display_alias: string | null
+  state_code: string | null
+  education_level: string | null
+  course: string | null
+  course_year: number | null
+  marks_percentage: number | null
+  family_income_range: string | null
+  categories: string[]
+  preferred_language: string
+  photo_data_url: string | null
+}
+
+export interface StudentProfile extends StudentProfileInput {
+  completeness: number
+  updated_at: string | null
+}
+
+export interface SavedScholarshipResponse {
+  scholarship_id: string
+  saved: boolean
+}
+
 export interface Scholarship {
   id: string
   version_id: string
