@@ -29,11 +29,11 @@ export const PrismaHero = () => {
 
         {/* Hero content */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 md:px-10 lg:pb-12">
-          <div className="grid grid-cols-12 items-start gap-4 h-full pt-[20vh] sm:pt-[25vh] md:pt-[30vh]">
+          <div className="grid grid-cols-12 items-start gap-4 h-full pt-[15vh] sm:pt-[20vh] md:pt-[25vh]">
             
             <div className="col-span-12 lg:col-span-7">
               <h1
-                className="font-semibold leading-[0.85] tracking-[-0.05em] text-[12vw] sm:text-[10vw] md:text-[8vw] lg:text-[7vw] xl:text-[6.5vw] text-white drop-shadow-2xl"
+                className="font-semibold leading-[0.85] tracking-[-0.05em] text-[11vw] sm:text-[9vw] md:text-[7.5vw] lg:text-[6.5vw] xl:text-[6vw] text-white drop-shadow-2xl"
               >
                 ScholarSaathi<span className="text-[0.4em] align-top relative top-[-0.2em]">*</span>
               </h1>
@@ -42,7 +42,7 @@ export const PrismaHero = () => {
             <div className="col-span-12 flex flex-col gap-5 lg:col-span-5 lg:pt-0 self-start mt-[-2rem] sm:mt-[-4rem] md:mt-[-6rem] lg:mt-[-10rem] xl:mt-[-12rem] relative z-10">
               
               <p
-                className="text-sm text-[#F6F8FB]/95 sm:text-base md:text-lg lg:text-xl font-light drop-shadow-lg max-w-xl"
+                className="text-sm text-[#F6F8FB]/95 sm:text-base md:text-lg lg:text-xl font-light drop-shadow-lg max-w-2xl"
                 style={{ lineHeight: 1.5 }}
               >
                 Students are searching for scholarships. Find the perfect scholarship for your studies in the cloud. Let ScholarSaathi guide you through the opportunities and help you secure your future.

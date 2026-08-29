@@ -78,7 +78,7 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
   const accountLinkClass = 'inline-flex min-h-10 items-center gap-2 rounded-full border border-[#ccd5e6] bg-white px-4 text-xs font-semibold text-[#16305e] transition hover:bg-[#eaeef7]'
 
   return (
-    <header className={isHero ? 'absolute inset-x-0 top-0 z-30 px-4 py-4 sm:px-7 sm:py-5' : 'sticky top-0 z-40 border-b border-white/10 bg-[#020817]/95 px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:px-7'}>
+    <header className="absolute inset-x-0 top-0 z-30 px-4 py-4 sm:px-7 sm:py-5">
       <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
         <SiteBrand />
 
