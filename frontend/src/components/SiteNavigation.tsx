@@ -6,7 +6,7 @@ import { destinationForRealm, useAuth } from '@/context/AuthContext'
 const primaryItems = [
   { label: 'Home', to: '/' },
   { label: 'Scholarships', to: '/scholarships' },
-  { label: 'Student Login', to: '/login/student' },
+  { label: 'Student Workplace', to: '/login/student' },
   { label: 'Providers', to: '/providers' },
 ] as const
 
