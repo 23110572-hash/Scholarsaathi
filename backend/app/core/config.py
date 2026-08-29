@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-20b"
     groq_timeout_seconds: float = Field(default=45.0, gt=0, le=120)
     groq_max_retries: int = Field(default=2, ge=0, le=5)
+    # Groq enforces a tokens-per-minute ceiling that counts prompt tokens plus
+    # max_tokens in a single request. Exceeding it returns HTTP 413 outright, so the
+    # discovery prompt has to be sized against this budget. The free tier allows 8000
+    # TPM for openai/gpt-oss-20b; raise this after upgrading the Groq plan.
+    groq_token_budget: int = Field(default=8000, ge=2000, le=1_000_000)
+    # Candidates sent to the model per discovery request. The assistant UI surfaces the
+    # strongest four, so assessing more only spends tokens that never reach the student.
+    groq_discovery_max_candidates: int = Field(default=4, ge=1, le=12)
+    # Per-chunk evidence truncation, applied so one verbose provider document cannot
+    # push a single request past the token budget.
+    groq_discovery_evidence_char_limit: int = Field(default=900, ge=200, le=20_000)
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,6 +15,7 @@ from app.schemas import (
 )
 from app.services.ai_discovery import answer_scholarship_question, discover_scholarships
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["AI discovery"])
 
 
@@ -26,6 +28,7 @@ def discover(
     try:
         return discover_scholarships(db, profile)
     except AIWorkflowError as exc:
+        logger.error("Discovery request failed: %s", exc, exc_info=exc)
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             "The AI service is temporarily unavailable. No assessment was stored.",
@@ -47,6 +50,7 @@ def ask_about_scholarship(
     except LookupError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except AIWorkflowError as exc:
+        logger.error("Question request failed: %s", exc, exc_info=exc)
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             "The AI service is temporarily unavailable. No question was stored.",

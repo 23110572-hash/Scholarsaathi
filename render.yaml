@@ -31,5 +31,14 @@ services:
         value: "45"
       - key: GROQ_MAX_RETRIES
         value: "2"
+      # Groq free tier allows 8000 tokens per minute for openai/gpt-oss-20b and rejects
+      # any single request whose prompt plus max_tokens exceeds it. Raise these together
+      # after upgrading the Groq plan.
+      - key: GROQ_TOKEN_BUDGET
+        value: "8000"
+      - key: GROQ_DISCOVERY_MAX_CANDIDATES
+        value: "4"
+      - key: GROQ_DISCOVERY_EVIDENCE_CHAR_LIMIT
+        value: "900"
       - key: LANGSMITH_TRACING
         value: "false"

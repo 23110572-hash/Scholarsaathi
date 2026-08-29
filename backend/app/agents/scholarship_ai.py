@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Any, TypedDict
 
@@ -16,6 +17,7 @@ from app.schemas import (
 )
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 DISCOVERY_INSTRUCTIONS = """
 You are ScholarSaathi, an evidence-grounded scholarship discovery assistant.
@@ -25,8 +27,10 @@ provider-confirmed evidence. Never use model memory, invent a condition, or mix 
 scholarships. Every matching point and possible conflict must cite one or more exact citation IDs
 belonging to that scholarship version. If evidence is incomplete or contradictory, use
 CANNOT_DETERMINE_FROM_PUBLISHED_INFORMATION. LIKELY_ELIGIBLE is advisory guidance, never an
-official decision. The scholarship provider always makes the final decision. Return concise,
-supportive language in the student's preferred language when possible.
+official decision. The scholarship provider always makes the final decision. Report confidence as a
+decimal between 0 and 1, where 0 is no confidence and 1 is full confidence. Keep every summary
+under 300 characters and every statement under 200 characters. Return concise, supportive language
+in the student's preferred language when possible.
 """.strip()
 
 QUESTION_INSTRUCTIONS = """
@@ -41,9 +45,33 @@ class AIWorkflowError(RuntimeError):
     """Raised when a LangGraph AI workflow cannot produce a safe typed result."""
 
 
+class AICapacityError(AIWorkflowError):
+    """Raised when the AI provider refused the request for quota or size reasons.
+
+    Groq answers with HTTP 413 when a single request's prompt plus ``max_tokens``
+    exceeds the account's tokens-per-minute ceiling, and HTTP 429 once the ceiling is
+    consumed. Neither means the platform is broken, so callers degrade to the catalog
+    instead of failing the whole response.
+    """
+
+
+def _capacity_refusal(exc: Exception) -> bool:
+    """Return True when Groq refused the call for token quota or request-size reasons."""
+    status_code = getattr(exc, "status_code", None)
+    if status_code in {413, 429}:
+        return True
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict) and error.get("code") == "rate_limit_exceeded":
+            return True
+    return False
+
+
 class DiscoveryAgentState(TypedDict, total=False):
     payload: dict[str, Any]
     allowed_citations: dict[str, set[str]]
+    max_output_tokens: int
     parsed: DiscoveryAssessmentBundle
     result: DiscoveryAssessmentBundle
 
@@ -69,7 +97,7 @@ def _chat_model(max_tokens: int) -> ChatGroq:
 
 
 def _generate_discovery(state: DiscoveryAgentState) -> dict[str, DiscoveryAssessmentBundle]:
-    structured_model = _chat_model(5000).with_structured_output(
+    structured_model = _chat_model(state["max_output_tokens"]).with_structured_output(
         DiscoveryAssessmentBundle,
         method="json_schema",
         strict=True,
@@ -225,16 +253,29 @@ def _question_graph():
 def run_discovery_agent(
     payload: dict[str, Any],
     allowed_citations: dict[str, set[str]],
+    max_output_tokens: int,
 ) -> DiscoveryAssessmentBundle | None:
     if not settings.groq_api_key:
         return None
     try:
         final_state = _discovery_graph().invoke(
-            {"payload": payload, "allowed_citations": allowed_citations}
+            {
+                "payload": payload,
+                "allowed_citations": allowed_citations,
+                "max_output_tokens": max_output_tokens,
+            }
         )
     except AIWorkflowError:
         raise
     except Exception as exc:
+        logger.exception(
+            "Discovery agent failed (model=%s, candidates=%d, max_output_tokens=%d)",
+            settings.groq_model,
+            len(payload.get("candidate_scholarships", [])),
+            max_output_tokens,
+        )
+        if _capacity_refusal(exc):
+            raise AICapacityError("The AI provider refused the discovery request") from exc
         raise AIWorkflowError("The discovery agent workflow failed") from exc
 
     result = final_state.get("result")
@@ -256,6 +297,9 @@ def run_question_agent(
     except AIWorkflowError:
         raise
     except Exception as exc:
+        logger.exception("Question agent failed (model=%s)", settings.groq_model)
+        if _capacity_refusal(exc):
+            raise AICapacityError("The AI provider refused the question request") from exc
         raise AIWorkflowError("The scholarship question workflow failed") from exc
 
     result = final_state.get("result")
