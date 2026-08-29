@@ -2529,3 +2529,9 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   color: #0f172a;
 }
 
+/* --- AI Assistant Tweaks --- */
+.ai-suggestions button {
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+}
+
