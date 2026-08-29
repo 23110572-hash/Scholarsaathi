@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from app.core.config import get_settings
@@ -48,17 +48,11 @@ class AIWorkflowError(RuntimeError):
 
 
 class AICapacityError(AIWorkflowError):
-    """Raised when the AI provider refused the request for quota or size reasons.
-
-    Groq answers with HTTP 413 when a single request's prompt plus ``max_tokens``
-    exceeds the account's tokens-per-minute ceiling, and HTTP 429 once the ceiling is
-    consumed. Neither means the platform is broken, so callers degrade to the catalog
-    instead of failing the whole response.
-    """
+    """Raised when the AI provider refused the request for quota or size reasons."""
 
 
 def _capacity_refusal(exc: Exception) -> bool:
-    """Return True when Groq refused the call for token quota or request-size reasons."""
+    """Return True when the AI provider refused the call for token quota or request-size reasons."""
     status_code = getattr(exc, "status_code", None)
     if status_code in {413, 429}:
         return True
@@ -85,16 +79,17 @@ class QuestionAgentState(TypedDict, total=False):
     result: ScholarshipQuestionParsed
 
 
-def _chat_model(max_tokens: int) -> ChatGroq:
-    if not settings.groq_api_key:
-        raise AIWorkflowError("GROQ_API_KEY is not configured")
-    return ChatGroq(
-        model=settings.groq_model,
-        api_key=settings.groq_api_key.get_secret_value(),
+def _chat_model(max_tokens: int) -> ChatOpenAI:
+    if not settings.openrouter_api_key:
+        raise AIWorkflowError("OPENROUTER_API_KEY is not configured")
+    return ChatOpenAI(
+        model=settings.ai_model,
+        api_key=settings.openrouter_api_key.get_secret_value(),
+        base_url="https://openrouter.ai/api/v1",
         temperature=0,
         max_tokens=max_tokens,
-        timeout=settings.groq_timeout_seconds,
-        max_retries=settings.groq_max_retries,
+        timeout=settings.ai_timeout_seconds,
+        max_retries=settings.ai_max_retries,
     )
 
 
@@ -257,7 +252,7 @@ def run_discovery_agent(
     allowed_citations: dict[str, set[str]],
     max_output_tokens: int,
 ) -> DiscoveryAssessmentBundle | None:
-    if not settings.groq_api_key:
+    if not settings.openrouter_api_key:
         return None
     try:
         final_state = _discovery_graph().invoke(
@@ -272,7 +267,7 @@ def run_discovery_agent(
     except Exception as exc:
         logger.exception(
             "Discovery agent failed (model=%s, candidates=%d, max_output_tokens=%d)",
-            settings.groq_model,
+            settings.ai_model,
             len(payload.get("candidate_scholarships", [])),
             max_output_tokens,
         )
@@ -290,7 +285,7 @@ def run_question_agent(
     payload: dict[str, Any],
     allowed_citations: set[str],
 ) -> ScholarshipQuestionParsed | None:
-    if not settings.groq_api_key:
+    if not settings.openrouter_api_key:
         return None
     try:
         final_state = _question_graph().invoke(
@@ -299,7 +294,7 @@ def run_question_agent(
     except AIWorkflowError:
         raise
     except Exception as exc:
-        logger.exception("Question agent failed (model=%s)", settings.groq_model)
+        logger.exception("Question agent failed (model=%s)", settings.ai_model)
         if _capacity_refusal(exc):
             raise AICapacityError("The AI provider refused the question request") from exc
         raise AIWorkflowError("The scholarship question workflow failed") from exc

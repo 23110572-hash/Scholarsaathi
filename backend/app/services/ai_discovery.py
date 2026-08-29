@@ -27,7 +27,7 @@ from app.schemas import (
 
 settings = get_settings()
 
-# Groq counts prompt tokens plus max_tokens against the tokens-per-minute ceiling and
+# OpenRouter / AI providers count prompt tokens plus max_tokens against the tokens-per-minute ceiling and
 # rejects the request with HTTP 413 when the sum exceeds it. These constants keep the
 # estimate deliberately pessimistic so a request is trimmed rather than refused.
 _CHARS_PER_TOKEN = 3
@@ -50,18 +50,18 @@ def _plan_discovery_request(
     student_facts: dict[str, Any],
     candidate_payload: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], int]:
-    """Trim candidates until prompt + output tokens fit the configured Groq budget.
+    """Trim candidates until prompt + output tokens fit the configured AI token budget.
 
     Returns the candidates to assess and the max_tokens to request. Dropping the tail is
     safe: candidates are ordered by nearest deadline and every one still reaches the
     student through the unfiltered ``candidates`` list.
     """
-    candidates = candidate_payload[: settings.groq_discovery_max_candidates]
+    candidates = candidate_payload[: settings.ai_discovery_max_candidates]
     while candidates:
         prompt_tokens = _estimate_tokens(
             {"student_facts": student_facts, "candidate_scholarships": candidates}
         )
-        available = settings.groq_token_budget - prompt_tokens - _SAFETY_MARGIN_TOKENS
+        available = settings.ai_token_budget - prompt_tokens - _SAFETY_MARGIN_TOKENS
         wanted = min(
             _MAX_OUTPUT_TOKENS,
             _OUTPUT_TOKENS_PER_CANDIDATE * len(candidates) + _INTRODUCTION_TOKENS,
@@ -103,8 +103,8 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
 
     if not rows:
         return DiscoveryResponse(
-            ai_available=bool(settings.groq_api_key),
-            model=settings.groq_model if settings.groq_api_key else None,
+            ai_available=bool(settings.openrouter_api_key),
+            model=settings.ai_model if settings.openrouter_api_key else None,
             notice="No active published scholarships matched the initial search scope.",
             candidates=[],
             introduction="Try broadening the state, course, or education-level information.",
@@ -124,13 +124,13 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     for chunk in chunks:
         chunks_by_version[str(chunk.scholarship_version_id)].append(chunk)
 
-    if not settings.groq_api_key:
+    if not settings.openrouter_api_key:
         return DiscoveryResponse(
             ai_available=False,
             model=None,
             notice=(
                 "The published scholarship catalog is available, but AI assessment requires "
-                "GROQ_API_KEY in the backend environment."
+                "OPENROUTER_API_KEY in the backend environment."
             ),
             candidates=cards,
             introduction=None,
@@ -139,7 +139,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
 
     candidate_payload: list[dict[str, Any]] = []
     citations_by_version: dict[str, set[str]] = {}
-    evidence_limit = settings.groq_discovery_evidence_char_limit
+    evidence_limit = settings.ai_discovery_evidence_char_limit
     for scholarship, version, organization in rows:
         version_key = str(version.id)
         evidence = [
@@ -173,7 +173,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     if not assessed:
         return DiscoveryResponse(
             ai_available=False,
-            model=settings.groq_model,
+            model=settings.ai_model,
             notice=(
                 "The published scholarship catalog is available, but the provider evidence "
                 "is too large for the current AI token budget. Narrow the search with a "
@@ -200,7 +200,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     except AICapacityError:
         return DiscoveryResponse(
             ai_available=False,
-            model=settings.groq_model,
+            model=settings.ai_model,
             notice=(
                 "AI assessment is at its usage limit for the moment. The published catalog "
                 "below is complete, and assessments resume within a minute."
@@ -212,7 +212,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     if parsed is None:
         return DiscoveryResponse(
             ai_available=True,
-            model=settings.groq_model,
+            model=settings.ai_model,
             notice="AI returned no source-confirmed assessment. The catalog candidates are still shown.",
             candidates=cards,
             assessments=[],
@@ -228,7 +228,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
 
     return DiscoveryResponse(
         ai_available=True,
-        model=settings.groq_model,
+        model=settings.ai_model,
         notice=notice,
         candidates=cards,
         introduction=parsed.introduction,
@@ -268,7 +268,7 @@ def answer_scholarship_question(
         for chunk in chunks
     }
 
-    if not settings.groq_api_key:
+    if not settings.openrouter_api_key:
         return ScholarshipQuestionResponse(
             ai_available=False,
             model=None,
@@ -299,7 +299,7 @@ def answer_scholarship_question(
     except AICapacityError:
         return ScholarshipQuestionResponse(
             ai_available=False,
-            model=settings.groq_model,
+            model=settings.ai_model,
             label="PROVIDER_CONFIRMATION_REQUIRED",
             answer=(
                 "AI answering is at its usage limit for the moment. Please try again in a "
@@ -311,7 +311,7 @@ def answer_scholarship_question(
     if parsed is None:
         return ScholarshipQuestionResponse(
             ai_available=True,
-            model=settings.groq_model,
+            model=settings.ai_model,
             label="PROVIDER_CONFIRMATION_REQUIRED",
             answer="I could not confirm an answer from the provider-published information.",
             citations=[],
@@ -320,7 +320,7 @@ def answer_scholarship_question(
 
     return ScholarshipQuestionResponse(
         ai_available=True,
-        model=settings.groq_model,
+        model=settings.ai_model,
         label=parsed.label,
         answer=parsed.answer,
         citations=[excerpts[citation_id] for citation_id in parsed.citation_ids],

@@ -225,6 +225,21 @@ class StudentSetting(Base):
     )
     display_alias: Mapped[str | None] = mapped_column(String(80))
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
+    # Eligibility profile. Every field is optional so a student can complete the profile
+    # gradually; the discovery assistant reads whatever is present.
+    full_name: Mapped[str | None] = mapped_column(String(120))
+    state_code: Mapped[str | None] = mapped_column(String(2))
+    education_level: Mapped[str | None] = mapped_column(String(60))
+    course: Mapped[str | None] = mapped_column(String(80))
+    course_year: Mapped[int | None] = mapped_column(Integer)
+    marks_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    family_income_range: Mapped[str | None] = mapped_column(String(80))
+    categories: Mapped[list[str]] = mapped_column(
+        ARRAY(String(80)), nullable=False, server_default=text("'{}'")
+    )
+    # Profile photos are stored as a size-bounded base64 data URL rather than a file:
+    # there is no object store configured and the Render disk is ephemeral.
+    photo_data_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
