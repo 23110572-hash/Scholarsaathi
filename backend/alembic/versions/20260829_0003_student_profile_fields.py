@@ -23,28 +23,42 @@ depends_on: str | Sequence[str] | None = None
 # LIST (domain) partitioned public.* tables, so plain ADD COLUMN is sufficient.
 _SCHEMA = "student"
 _TABLE = "student_settings"
-
-_NEW_COLUMNS = (
-    sa.Column("full_name", sa.String(length=120), nullable=True),
-    sa.Column("state_code", sa.String(length=2), nullable=True),
-    sa.Column("education_level", sa.String(length=60), nullable=True),
-    sa.Column("course", sa.String(length=80), nullable=True),
-    sa.Column("course_year", sa.Integer(), nullable=True),
-    sa.Column("marks_percentage", sa.Numeric(precision=5, scale=2), nullable=True),
-    sa.Column("family_income_range", sa.String(length=80), nullable=True),
-    sa.Column(
-        "categories",
-        postgresql.ARRAY(sa.String(length=80)),
-        nullable=False,
-        server_default=sa.text("'{}'"),
-    ),
-    sa.Column("photo_data_url", sa.Text(), nullable=True),
+_COLUMN_NAMES = (
+    "full_name",
+    "state_code",
+    "education_level",
+    "course",
+    "course_year",
+    "marks_percentage",
+    "family_income_range",
+    "categories",
+    "photo_data_url",
 )
 
 
 def upgrade() -> None:
-    for column in _NEW_COLUMNS:
-        op.add_column(_TABLE, column.copy(), schema=_SCHEMA)
+    op.add_column(_TABLE, sa.Column("full_name", sa.String(length=120)), schema=_SCHEMA)
+    op.add_column(_TABLE, sa.Column("state_code", sa.String(length=2)), schema=_SCHEMA)
+    op.add_column(_TABLE, sa.Column("education_level", sa.String(length=60)), schema=_SCHEMA)
+    op.add_column(_TABLE, sa.Column("course", sa.String(length=80)), schema=_SCHEMA)
+    op.add_column(_TABLE, sa.Column("course_year", sa.Integer()), schema=_SCHEMA)
+    op.add_column(
+        _TABLE,
+        sa.Column("marks_percentage", sa.Numeric(precision=5, scale=2)),
+        schema=_SCHEMA,
+    )
+    op.add_column(_TABLE, sa.Column("family_income_range", sa.String(length=80)), schema=_SCHEMA)
+    op.add_column(
+        _TABLE,
+        sa.Column(
+            "categories",
+            postgresql.ARRAY(sa.String(length=80)),
+            nullable=False,
+            server_default=sa.text("'{}'"),
+        ),
+        schema=_SCHEMA,
+    )
+    op.add_column(_TABLE, sa.Column("photo_data_url", sa.Text()), schema=_SCHEMA)
 
     op.create_check_constraint(
         "v2_ck_setting_course_year",
@@ -63,5 +77,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_constraint("v2_ck_setting_marks_percentage", _TABLE, schema=_SCHEMA, type_="check")
     op.drop_constraint("v2_ck_setting_course_year", _TABLE, schema=_SCHEMA, type_="check")
-    for column in reversed(_NEW_COLUMNS):
-        op.drop_column(_TABLE, column.name, schema=_SCHEMA)
+    for name in reversed(_COLUMN_NAMES):
+        op.drop_column(_TABLE, name, schema=_SCHEMA)

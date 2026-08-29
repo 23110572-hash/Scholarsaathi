@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Literal
@@ -268,6 +269,91 @@ class DiscoveryResponse(APIModel):
 class SavedScholarshipResponse(APIModel):
     scholarship_id: uuid.UUID
     saved: bool
+
+
+class StateOption(APIModel):
+    code: str
+    name: str
+    is_union_territory: bool
+
+
+# A downscaled square avatar encodes well under this ceiling. The limit is on the encoded
+# data URL because that is what is transported and stored.
+MAX_PHOTO_DATA_URL_LENGTH = 300_000
+_PHOTO_DATA_URL_PATTERN = r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$"
+
+
+class StudentProfileUpdate(APIModel):
+    full_name: str | None = Field(default=None, max_length=120)
+    display_alias: str | None = Field(default=None, max_length=80)
+    state_code: str | None = Field(default=None, min_length=2, max_length=2)
+    education_level: str | None = Field(default=None, max_length=60)
+    course: str | None = Field(default=None, max_length=80)
+    course_year: int | None = Field(default=None, ge=1, le=12)
+    marks_percentage: float | None = Field(default=None, ge=0, le=100)
+    family_income_range: str | None = Field(default=None, max_length=80)
+    categories: list[str] = Field(default_factory=list, max_length=20)
+    preferred_language: str = Field(default="en", min_length=2, max_length=10)
+    photo_data_url: str | None = Field(default=None, max_length=MAX_PHOTO_DATA_URL_LENGTH)
+
+    @field_validator(
+        "full_name",
+        "display_alias",
+        "education_level",
+        "course",
+        "family_income_range",
+        mode="before",
+    )
+    @classmethod
+    def blank_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("photo_data_url")
+    @classmethod
+    def validate_photo(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not re.fullmatch(_PHOTO_DATA_URL_PATTERN, value):
+            raise ValueError("Profile photo must be a PNG, JPEG, or WebP image")
+        return value
+
+    @model_validator(mode="after")
+    def normalize(self) -> StudentProfileUpdate:
+        if self.full_name:
+            self.full_name = self.full_name.strip()
+        if self.display_alias:
+            self.display_alias = self.display_alias.strip()
+        if self.state_code:
+            self.state_code = self.state_code.upper()
+        if self.education_level:
+            self.education_level = self.education_level.upper()
+        if self.course:
+            self.course = self.course.upper()
+        # De-duplicate while preserving order so the stored list matches what was entered.
+        self.categories = list(
+            dict.fromkeys(
+                value.strip().upper() for value in self.categories if value and value.strip()
+            )
+        )
+        return self
+
+
+class StudentProfileResponse(APIModel):
+    full_name: str | None
+    display_alias: str | None
+    state_code: str | None
+    education_level: str | None
+    course: str | None
+    course_year: int | None
+    marks_percentage: float | None
+    family_income_range: str | None
+    categories: list[str]
+    preferred_language: str
+    photo_data_url: str | None
+    completeness: int = Field(ge=0, le=100)
+    updated_at: datetime | None = None
 
 
 class ApplicationCreateRequest(APIModel):
