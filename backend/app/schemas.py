@@ -54,8 +54,15 @@ class LoginRequest(APIModel):
 
 class StudentRegisterRequest(LoginRequest):
     email: EmailStr
+    password_confirmation: str = Field(min_length=8, max_length=128)
     display_alias: str | None = Field(default=None, max_length=80)
     preferred_language: str = Field(default="en", min_length=2, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_password_confirmation(self) -> StudentRegisterRequest:
+        if self.password != self.password_confirmation:
+            raise ValueError("Passwords do not match")
+        return self
 
 
 class OrganizationRegisterRequest(LoginRequest):

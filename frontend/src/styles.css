@@ -1363,3 +1363,49 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
 @media (prefers-reduced-motion: reduce) {
   .ai-assistant-launcher, .ai-assistant-panel { transition: none; }
 }
+
+
+/* Student sign-in and account creation */
+.auth-mode-switch {
+  display: grid;
+  padding: .25rem;
+  margin: 1.25rem 0 1.5rem;
+  background: #e9e7e0;
+  border: 1px solid #cbc8c0;
+  grid-template-columns: 1fr 1fr;
+  gap: .25rem;
+}
+.auth-mode-switch button {
+  min-height: 2.75rem;
+  padding: .65rem .8rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: .75rem;
+  font-weight: 800;
+}
+.auth-mode-switch button.active {
+  color: #fff;
+  background: var(--green);
+  border-color: var(--green);
+}
+.auth-mode-switch button:focus-visible, .auth-mode-link:focus-visible {
+  outline: 3px solid rgba(110, 40, 52, .25);
+  outline-offset: 2px;
+}
+.auth-form label small {
+  color: var(--muted);
+  font-size: .65rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.auth-mode-link {
+  padding: .2rem;
+  color: var(--green);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

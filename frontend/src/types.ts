@@ -23,6 +23,14 @@ export interface SessionUser {
   organization: OrganizationSummary | null
 }
 
+export interface StudentRegistrationInput {
+  email: string
+  password: string
+  password_confirmation: string
+  display_alias?: string
+  preferred_language: string
+}
+
 export interface Scholarship {
   id: string
   version_id: string

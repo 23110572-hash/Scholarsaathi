@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -20,6 +21,7 @@ from app.models import (
     ownership_domain_for_type,
 )
 from app.presenters import organization_summary
+from app.rate_limit import require_student_registration_capacity
 from app.schemas import (
     LoginRequest,
     MessageResponse,
@@ -135,6 +137,7 @@ def register_student(
     payload: StudentRegisterRequest,
     request: Request,
     response: Response,
+    _rate_limit: None = Depends(require_student_registration_capacity),
     db: Session = Depends(get_db),
 ) -> SessionUserResponse:
     email = str(payload.email).lower()
@@ -147,19 +150,28 @@ def register_student(
         password_hash=hash_password(payload.password),
         realm=AccountRealm.STUDENT,
         status=AccountStatus.ACTIVE,
+        last_login_at=datetime.now(UTC),
     )
-    db.add(account)
-    db.flush()
-    db.add(
-        StudentSetting(
-            account_id=account.id,
-            account_domain=OwnershipDomain.STUDENT,
-            display_alias=payload.display_alias,
-            preferred_language=payload.preferred_language,
+    try:
+        db.add(account)
+        db.flush()
+        db.add(
+            StudentSetting(
+                account_id=account.id,
+                account_domain=OwnershipDomain.STUDENT,
+                display_alias=payload.display_alias,
+                preferred_language=payload.preferred_language,
+            )
         )
-    )
-    _, raw_token = create_session(db, account, request.headers.get("user-agent"))
-    db.commit()
+        _, raw_token = create_session(db, account, request.headers.get("user-agent"))
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "An account already uses this email",
+        ) from exc
+
     set_auth_cookies(response, raw_token)
     return _session_user(db, account)
 

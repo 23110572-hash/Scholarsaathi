@@ -5,10 +5,13 @@ from time import monotonic
 
 from fastapi import HTTPException, Request, status
 
-_WINDOW_SECONDS = 60.0
-_MAX_REQUESTS = 12
+_AI_WINDOW_SECONDS = 60.0
+_AI_MAX_REQUESTS = 12
+_REGISTRATION_WINDOW_SECONDS = 900.0
+_REGISTRATION_MAX_REQUESTS = 5
 _MAX_TRACKED_CLIENTS = 4096
-_requests: dict[str, deque[float]] = {}
+_ai_requests: dict[str, deque[float]] = {}
+_registration_requests: dict[str, deque[float]] = {}
 _lock = Lock()
 
 
@@ -21,30 +24,56 @@ def _client_key(request: Request) -> str:
     return peer
 
 
-def require_public_ai_capacity(request: Request) -> None:
+def _require_capacity(
+    request: Request,
+    requests: dict[str, deque[float]],
+    window_seconds: float,
+    max_requests: int,
+    message: str,
+) -> None:
     now = monotonic()
-    cutoff = now - _WINDOW_SECONDS
+    cutoff = now - window_seconds
     key = _client_key(request)
 
     with _lock:
-        bucket = _requests.setdefault(key, deque())
+        bucket = requests.setdefault(key, deque())
         while bucket and bucket[0] <= cutoff:
             bucket.popleft()
 
-        if len(bucket) >= _MAX_REQUESTS:
-            retry_after = max(1, ceil(_WINDOW_SECONDS - (now - bucket[0])))
+        if len(bucket) >= max_requests:
+            retry_after = max(1, ceil(window_seconds - (now - bucket[0])))
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                "Too many questions. Please wait before trying again.",
+                message,
                 headers={"Retry-After": str(retry_after)},
             )
 
         bucket.append(now)
-        if len(_requests) > _MAX_TRACKED_CLIENTS:
+        if len(requests) > _MAX_TRACKED_CLIENTS:
             stale_keys = [
                 client_key
-                for client_key, attempts in _requests.items()
+                for client_key, attempts in requests.items()
                 if not attempts or attempts[-1] <= cutoff
             ]
             for stale_key in stale_keys:
-                _requests.pop(stale_key, None)
+                requests.pop(stale_key, None)
+
+
+def require_public_ai_capacity(request: Request) -> None:
+    _require_capacity(
+        request,
+        _ai_requests,
+        _AI_WINDOW_SECONDS,
+        _AI_MAX_REQUESTS,
+        "Too many questions. Please wait before trying again.",
+    )
+
+
+def require_student_registration_capacity(request: Request) -> None:
+    _require_capacity(
+        request,
+        _registration_requests,
+        _REGISTRATION_WINDOW_SECONDS,
+        _REGISTRATION_MAX_REQUESTS,
+        "Too many account creation attempts. Please wait before trying again.",
+    )
