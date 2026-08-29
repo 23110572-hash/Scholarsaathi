@@ -137,53 +137,56 @@ export function ScholarshipCatalogPage() {
   const totalPages = Math.max(1, Math.ceil(catalog.total / PAGE_SIZE))
 
   return (
-    <main className="catalog-page simple-catalog">
-      <header className="catalog-heading section-pad">
-        <p className="portal-page-label">Scholarships</p>
-        <h1>Find your eligible scholarship</h1>
-        <p>Use the search and filters below to narrow the list.</p>
+    <main className="modern-catalog-page">
+      <header className="modern-catalog-hero">
+        <div className="hero-background-glow"></div>
+        <div className="modern-container">
+          <p className="hero-subtitle">Scholarships</p>
+          <h1 className="hero-title">Find your eligible scholarship</h1>
+          <p className="hero-description">Use the search and filters below to narrow the list and find the perfect match for your future.</p>
+        </div>
       </header>
 
-      <section className="catalog-search-section section-pad" aria-label="Search scholarships">
-        <form className="catalog-search-card" onSubmit={applyFilters}>
-          <div className="catalog-search-main">
+      <section className="modern-search-section" aria-label="Search scholarships">
+        <form className="modern-search-glass modern-container" onSubmit={applyFilters}>
+          <div className="modern-search-main">
             <SearchIcon />
             <label className="sr-only" htmlFor="scholarship-search">Search scholarships</label>
             <input id="scholarship-search" maxLength={120} placeholder="Scholarship name, course, benefit, or provider" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} />
-            <button className="button button-primary" type="submit">Find scholarships</button>
+            <button className="modern-button-primary" type="submit">Find scholarships</button>
           </div>
-          <div className="catalog-filter-grid">
-            <label>Location<select value={filters.state_code} onChange={(event) => setFilters({ ...filters, state_code: event.target.value })}>{states.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
-            <label>Provider<select value={filters.organization_type} onChange={(event) => setFilters({ ...filters, organization_type: event.target.value as OrganizationType | '' })}>{organizationTypes.map((option) => <option key={option.value || 'all'} value={option.value}>{option.label}</option>)}</select></label>
-            <label>Education<select value={filters.education_level} onChange={(event) => setFilters({ ...filters, education_level: event.target.value })}>{educationLevels.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
-            <label>Course<select value={filters.course} onChange={(event) => setFilters({ ...filters, course: event.target.value })}>{courseFamilies.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
+          <div className="modern-filter-grid">
+            <label className="modern-filter-label">Location<select value={filters.state_code} onChange={(event) => setFilters({ ...filters, state_code: event.target.value })}>{states.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
+            <label className="modern-filter-label">Provider<select value={filters.organization_type} onChange={(event) => setFilters({ ...filters, organization_type: event.target.value as OrganizationType | '' })}>{organizationTypes.map((option) => <option key={option.value || 'all'} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="modern-filter-label">Education<select value={filters.education_level} onChange={(event) => setFilters({ ...filters, education_level: event.target.value })}>{educationLevels.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
+            <label className="modern-filter-label">Course<select value={filters.course} onChange={(event) => setFilters({ ...filters, course: event.target.value })}>{courseFamilies.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}</select></label>
           </div>
-          <div className="catalog-filter-footer">
+          <div className="catalog-filter-footer mt-4 flex justify-between items-center text-sm font-medium text-slate-500">
             <span>{activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} applied` : 'All scholarships'}</span>
-            {activeFilterCount > 0 && <button className="text-button clear-filter" type="button" onClick={clearFilters}>Clear filters</button>}
+            {activeFilterCount > 0 && <button className="text-orange-500 hover:text-orange-600 transition-colors" type="button" onClick={clearFilters}>Clear filters</button>}
           </div>
         </form>
       </section>
 
-      <section className="catalog-results section-pad" aria-live="polite">
-        <div className="catalog-results-heading">
+      <section className="modern-results-section" aria-live="polite">
+        <div className="modern-results-heading">
           <div><h2>{query.q ? `Results for “${query.q}”` : 'Scholarships'}</h2><p>{activeFilterCount ? 'Results matching the selected filters.' : 'Select a scholarship to check its details.'}</p></div>
           {!loading && !error && <strong>{firstResult}–{lastResult} <span>of {catalog.total}</span></strong>}
         </div>
-        {notice && <div className="notice-banner"><p>{notice}</p></div>}
-        {error && <div className="catalog-error" role="alert"><div><h3>Scholarships could not be loaded</h3><p>{error}</p></div><button className="button button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}>Try again</button></div>}
+        {notice && <div className="notice-banner modern-container mb-6"><p>{notice}</p></div>}
+        {error && <div className="catalog-error modern-container mb-6" role="alert"><div><h3>Scholarships could not be loaded</h3><p>{error}</p></div><button className="modern-button-secondary" type="button" onClick={() => setRetry((value) => value + 1)}>Try again</button></div>}
         {loading ? (
-          <div className="scholarship-grid" aria-label="Loading scholarships">{Array.from({ length: 6 }, (_, index) => <div className="scholarship-skeleton" key={index}><i /><i /><i /><i /></div>)}</div>
+          <div className="modern-scholarship-grid" aria-label="Loading scholarships">{Array.from({ length: 6 }, (_, index) => <div className="scholarship-skeleton" key={index}><i /><i /><i /><i /></div>)}</div>
         ) : !error && catalog.items.length === 0 ? (
-          <div className="empty-state catalog-empty"><SearchIcon /><h3>No scholarships found</h3><p>Remove a filter or use a broader search term.</p><button className="button button-secondary" type="button" onClick={clearFilters}>Show all scholarships</button></div>
+          <div className="empty-state catalog-empty modern-container"><SearchIcon /><h3>No scholarships found</h3><p>Remove a filter or use a broader search term.</p><button className="modern-button-secondary" type="button" onClick={clearFilters}>Show all scholarships</button></div>
         ) : !error ? (
-          <div className="scholarship-grid">{catalog.items.map((scholarship) => <ScholarshipCard key={scholarship.id} scholarship={scholarship} onSave={(id) => void saveScholarship(id)} />)}</div>
+          <div className="modern-scholarship-grid">{catalog.items.map((scholarship) => <ScholarshipCard key={scholarship.id} scholarship={scholarship} onSave={(id) => void saveScholarship(id)} />)}</div>
         ) : null}
         {!loading && !error && catalog.total > PAGE_SIZE && (
-          <nav className="catalog-pagination" aria-label="Scholarship result pages">
-            <button className="button button-secondary" type="button" disabled={query.offset === 0} onClick={() => changePage(Math.max(0, query.offset - PAGE_SIZE))}>← Previous</button>
-            <span>Page <strong>{currentPage}</strong> of {totalPages}</span>
-            <button className="button button-secondary" type="button" disabled={query.offset + PAGE_SIZE >= catalog.total} onClick={() => changePage(query.offset + PAGE_SIZE)}>Next →</button>
+          <nav className="modern-pagination" aria-label="Scholarship result pages">
+            <button className="modern-button-secondary" type="button" disabled={query.offset === 0} onClick={() => changePage(Math.max(0, query.offset - PAGE_SIZE))}>← Previous</button>
+            <span className="text-sm font-medium text-slate-500">Page <strong className="text-slate-900">{currentPage}</strong> of {totalPages}</span>
+            <button className="modern-button-secondary" type="button" disabled={query.offset + PAGE_SIZE >= catalog.total} onClick={() => changePage(query.offset + PAGE_SIZE)}>Next →</button>
           </nav>
         )}
       </section>

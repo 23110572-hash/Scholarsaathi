@@ -50,75 +50,65 @@ export function ScholarshipCard({ scholarship, assessment, onSave }: Scholarship
   const education = scholarship.education_levels.slice(0, 2).map(formatToken).join(' · ')
 
   return (
-    <article className="scholarship-card">
-      <div className="card-topline">
-        <span className="provider-pill">
+    <article className="modern-card">
+      <div className="modern-card-header">
+        <span className="modern-provider-pill">
           {providerLabels[scholarship.organization.organization_type] ?? 'Provider'}
         </span>
       </div>
 
-      <div className="card-provider-row">
-        <span className="provider-monogram" aria-hidden="true">{scholarship.organization.display_name.charAt(0)}</span>
-        <div>
-          <p className="card-provider">{scholarship.organization.display_name}</p>
+      <div className="modern-card-body">
+        <div className="modern-card-provider">
+          <span className="modern-provider-avatar" aria-hidden="true">{scholarship.organization.display_name.charAt(0)}</span>
+          <span>{scholarship.organization.display_name}</span>
         </div>
-      </div>
 
-      <div className="card-copy">
-        <Link className="card-title-link" to={`/scholarships/${scholarship.id}`}>
+        <Link className="modern-card-title" to={`/scholarships/${scholarship.id}`}>
           <h3>{scholarship.title}</h3>
         </Link>
-        <p className="card-summary">{scholarship.summary}</p>
-      </div>
+        <p className="modern-card-summary">{scholarship.summary}</p>
 
-      {assessment && (
-        <div className={`assessment assessment-${assessment.assessment.toLowerCase()}`}>
-          <div>
-            <strong>{assessmentLabels[assessment.assessment]}</strong>
+        {assessment && (
+          <div className={`assessment assessment-${assessment.assessment.toLowerCase()} mb-4`}>
+            <div>
+              <strong>{assessmentLabels[assessment.assessment]}</strong>
+            </div>
+            <p>{assessment.summary}</p>
           </div>
-          <p>{assessment.summary}</p>
-        </div>
-      )}
-
-      <div className="card-meta-row" aria-label="Scholarship coverage and audience">
-        <span>{formatCoverage(scholarship)}</span>
-        <span>{education || 'See eligibility'}</span>
-        <span>{scholarship.academic_year}</span>
-      </div>
-
-      <div className="tag-row" aria-label="Scholarship categories">
-        {scholarship.category_tags.slice(0, 3).map((tag) => (
-          <span key={tag}>{formatToken(tag)}</span>
-        ))}
-      </div>
-
-      <dl className="card-facts">
-        <div>
-          <dt>Support</dt>
-          <dd>{scholarship.benefit_summary}</dd>
-        </div>
-      </dl>
-
-      <div className={deadline.urgent ? 'card-deadline urgent' : 'card-deadline'}>
-        <span>Application deadline</span>
-        <strong>{deadline.urgency}</strong>
-        <small>{deadline.date}</small>
-      </div>
-
-      <div className="card-actions">
-        <Link className="inline-link" to={`/scholarships/${scholarship.id}`}>
-          View full details <ArrowIcon />
-        </Link>
-        {onSave && (
-          <button
-            className="card-save-button"
-            type="button"
-            aria-label={`Save ${scholarship.title}`}
-            onClick={() => onSave(scholarship.id)}
-          >
-            <BookmarkIcon /> <span>Save</span>
-          </button>
         )}
+
+        <div className="modern-tag-row" aria-label="Scholarship categories">
+          <span className="modern-tag" title="Coverage">{formatCoverage(scholarship)}</span>
+          <span className="modern-tag" title="Education">{education || 'See eligibility'}</span>
+          <span className="modern-tag" title="Academic Year">{scholarship.academic_year}</span>
+          {scholarship.category_tags.slice(0, 2).map((tag) => (
+            <span className="modern-tag" key={tag}>{formatToken(tag)}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="modern-card-footer">
+        <div className="modern-deadline">
+          <span className="modern-deadline-label">Application deadline</span>
+          <strong className={deadline.urgent ? 'modern-deadline-value urgent' : 'modern-deadline-value'}>{deadline.urgency}</strong>
+          <small className="text-xs text-slate-500 mt-1">{deadline.date}</small>
+        </div>
+
+        <div className="flex flex-col gap-2 items-end">
+          <Link className="modern-action-link" to={`/scholarships/${scholarship.id}`}>
+            View full details <ArrowIcon />
+          </Link>
+          {onSave && (
+            <button
+              className="text-xs font-semibold text-slate-500 hover:text-orange-500 transition-colors flex items-center gap-1"
+              type="button"
+              aria-label={`Save ${scholarship.title}`}
+              onClick={() => onSave(scholarship.id)}
+            >
+              <BookmarkIcon /> Save
+            </button>
+          )}
+        </div>
       </div>
     </article>
   )
