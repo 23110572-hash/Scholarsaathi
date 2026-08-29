@@ -4,6 +4,7 @@ import sys
 
 from app.database import SessionLocal
 from app.models import (
+    Account,
     Organization,
     Scholarship,
     ScholarshipVersion,
@@ -40,6 +41,10 @@ def main():
         scholarship_id = stable_id(f"scholarship:{slug}")
         version_id = stable_id(f"version:{slug}:1")
         
+        # Find publisher account
+        publisher = session.query(Account).filter_by(login_identifier="central.publisher@demo.scholarsaathi.local").first()
+        publisher_id = publisher.id if publisher else org.id
+
         # Create Scholarship
         scholarship = session.query(Scholarship).filter_by(id=scholarship_id).first()
         if not scholarship:
@@ -53,20 +58,6 @@ def main():
             )
             session.add(scholarship)
         
-        # Create Application Template
-        template_id = stable_id(f"application-template:{slug}")
-        template = session.query(ApplicationTemplate).filter_by(id=template_id).first()
-        if not template:
-            template = ApplicationTemplate(
-                domain=OwnershipDomain.CENTRAL_GOVERNMENT,
-                id=template_id,
-                organization_id=org.id,
-                scholarship_version_id=version_id,
-                template_version=1,
-                status="OWNER_CONFIRMED",
-            )
-            session.add(template)
-            
         # Create Scholarship Version
         version = session.query(ScholarshipVersion).filter_by(id=version_id).first()
         if not version:
@@ -80,6 +71,8 @@ def main():
                 knowledge_summary="Synthetic eligibility requirements.",
                 title=title,
                 summary=f"Synthetic demo scholarship {i} for central government.",
+                academic_year="2026-27",
+                scope="NATIONAL",
                 applicable_state_codes=["ALL"],
                 education_levels=["UNDERGRADUATE"],
                 course_families=["BTECH", "BE", "BCA", "BSC"],
@@ -91,8 +84,27 @@ def main():
                 application_deadline_at=timestamp(11, 30, 23),
                 official_source_url=f"https://provider.gov.in/demo/{slug}",
                 provider_helpdesk_url="https://provider.gov.in/help",
+                created_by=publisher_id,
+                published_by=publisher_id,
+                published_at=timestamp(8, 20),
             )
             session.add(version)
+            session.flush()
+
+        # Create Application Template
+        template_id = stable_id(f"application-template:{slug}")
+        template = session.query(ApplicationTemplate).filter_by(id=template_id).first()
+        if not template:
+            template = ApplicationTemplate(
+                domain=OwnershipDomain.CENTRAL_GOVERNMENT,
+                id=template_id,
+                organization_id=org.id,
+                scholarship_version_id=version_id,
+                template_version=1,
+                status="OWNER_CONFIRMED",
+                created_by=publisher_id,
+            )
+            session.add(template)
             
         # Create Knowledge Chunk
         chunk_id = stable_id(f"chunk:{slug}:eligibility")
