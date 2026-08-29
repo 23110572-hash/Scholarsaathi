@@ -1606,7 +1606,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 .modern-catalog-hero {
   position: relative;
   padding: 12rem 2rem 8rem;
-  background: linear-gradient(135deg, #020817, #0b1a30, #0a1128);
+  background: linear-gradient(rgba(2, 8, 23, 0.6), rgba(2, 8, 23, 0.9)), url('/scholarship-bg.png') center/cover no-repeat;
   color: white;
   text-align: center;
   overflow: hidden;
