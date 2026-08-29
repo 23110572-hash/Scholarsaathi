@@ -43,9 +43,9 @@ export const PrismaHero = () => {
               
               <p
                 className="text-sm text-white sm:text-base md:text-lg lg:text-xl font-medium max-w-3xl"
-                style={{ lineHeight: 1.5, textShadow: '0 2px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.8)' }}
+                style={{ lineHeight: 1.5}}
               >
-                Students are searching for scholarships. Find the perfect scholarship for your studies in the cloud. Let ScholarSaathi guide you through the opportunities and help you secure your future.
+                Your Scholarship Search Starts Here Find scholarships you’re eligible for and take the next step toward your education.
               </p>
 
               <Link to="/scholarships" className="group inline-flex items-center gap-2 self-start rounded-full bg-[#FFFFFF] py-1 pl-5 pr-1 text-sm font-medium text-black transition-all hover:gap-3 hover:bg-gray-100 sm:text-base shadow-lg hover:shadow-xl">
