@@ -7,7 +7,7 @@ export const PrismaHero = () => {
   return (
     <section className="h-[100dvh] w-full bg-black">
       <div className="relative h-full w-full overflow-hidden">
-        
+
         {/* Background video */}
         <video
           autoPlay
@@ -30,7 +30,7 @@ export const PrismaHero = () => {
         {/* Hero content */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 md:px-10 lg:pb-12">
           <div className="grid grid-cols-12 items-start gap-4 h-full pt-[15vh] sm:pt-[20vh] md:pt-[25vh]">
-            
+
             <div className="col-span-12 lg:col-span-6">
               <h1
                 className="font-semibold leading-[0.85] tracking-[-0.05em] text-[11vw] sm:text-[9vw] md:text-[7.5vw] lg:text-[6.5vw] xl:text-[6vw] text-white drop-shadow-2xl"
@@ -40,10 +40,10 @@ export const PrismaHero = () => {
             </div>
 
             <div className="col-span-12 flex flex-col gap-5 lg:col-span-6 lg:pt-0 self-start mt-[-3rem] sm:mt-[-5rem] md:mt-[-7rem] lg:mt-[-12rem] xl:mt-[-14rem] relative z-10">
-              
+
               <p
                 className="text-sm text-white sm:text-base md:text-lg lg:text-xl font-medium max-w-3xl"
-                style={{ lineHeight: 1.5}}
+                style={{ lineHeight: 1.5, textShadow: '0 2px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.8)' }}
               >
                 Your Scholarship Search Starts Here Find scholarships you’re eligible for and take the next step toward your education.
               </p>

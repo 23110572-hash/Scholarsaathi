@@ -92,97 +92,86 @@ export function LoginPage() {
   const heading = isRegistering ? 'Create your student account' : 'Sign in'
 
   return (
-    <main className={isOrganization ? 'auth-page provider-auth-page' : 'auth-page student-auth-page'}>
-      <section className="auth-story">
-        <div className="auth-story-inner">
-          <div className="auth-audience-mark"><AccountIcon /></div>
-          <p className="section-kicker">{isOrganization ? 'Provider account' : 'Student account'}</p>
-          <h1>{isOrganization ? 'Manage your scholarships' : isRegistering ? 'Start your scholarship journey' : 'Manage your scholarship activity'}</h1>
-          <p>
-            {isOrganization
-              ? 'Sign in to add, update, publish, or pause scholarships for your organization.'
-              : isRegistering
-                ? 'Create an account to save scholarships, receive AI-assisted guidance, and manage your applications in one place.'
-                : 'Sign in to save scholarships and manage your applications.'}
-          </p>
-        </div>
-      </section>
-
-      <section className="auth-panel">
-        <div className="auth-form-wrap">
-          <Link className="back-link" to={isOrganization ? '/providers' : '/scholarships'}>
+    <main className="modern-auth-page">
+      <div className="modern-auth-overlay"></div>
+      
+      <section className="modern-auth-container">
+        <div className="modern-auth-card">
+          <Link className="modern-back-link" to={isOrganization ? '/providers' : '/scholarships'}>
             ← Back to {isOrganization ? 'provider information' : 'scholarships'}
           </Link>
 
-          <div className="single-realm-badge">
-            <AccountIcon />
-            <span>{isOrganization ? 'Provider account' : 'Student account'}</span>
-          </div>
-
-          {!isOrganization && (
-            <div className="auth-mode-switch" role="group" aria-label="Student account access">
-              <button className={studentMode === 'signin' ? 'active' : ''} type="button" aria-pressed={studentMode === 'signin'} onClick={() => changeStudentMode('signin')}>Sign in</button>
-              <button className={studentMode === 'register' ? 'active' : ''} type="button" aria-pressed={studentMode === 'register'} onClick={() => changeStudentMode('register')}>Create account</button>
-            </div>
-          )}
-
-          <div className="auth-heading">
-            <p>{isOrganization ? 'Provider sign in' : isRegistering ? 'New student account' : 'Student sign in'}</p>
+          <div className="modern-auth-header">
+            <div className="modern-auth-icon"><AccountIcon /></div>
             <h2>{heading}</h2>
-            <span>
+            <p>
               {isOrganization
                 ? 'Use your organization-owner account.'
                 : isRegistering
                   ? 'Use an email you can access and create a secure password.'
                   : 'Use your student account.'}
-            </span>
+            </p>
           </div>
 
-          <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
+          {!isOrganization && (
+            <div className="modern-auth-switch" role="group" aria-label="Student account access">
+              <button className={studentMode === 'signin' ? 'active' : ''} type="button" aria-pressed={studentMode === 'signin'} onClick={() => changeStudentMode('signin')}>Sign in</button>
+              <button className={studentMode === 'register' ? 'active' : ''} type="button" aria-pressed={studentMode === 'register'} onClick={() => changeStudentMode('register')}>Create account</button>
+            </div>
+          )}
+
+          <form className="modern-auth-form" onSubmit={(event) => void handleSubmit(event)}>
             {isRegistering && (
-              <label>
-                Display name <small>Optional — do not enter sensitive information</small>
+              <div className="modern-form-group">
+                <label>Display name <small>(Optional)</small></label>
                 <input type="text" autoComplete="name" maxLength={80} value={displayAlias} onChange={(event) => setDisplayAlias(event.target.value)} />
-              </label>
+              </div>
             )}
-            <label>
-              Email address
+            
+            <div className="modern-form-group">
+              <label>Email address</label>
               <input type="email" autoComplete="email" maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} required />
-            </label>
-            <label>
-              Password
+            </div>
+
+            <div className="modern-form-group">
+              <label>Password</label>
               <input type="password" autoComplete={isRegistering ? 'new-password' : 'current-password'} minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} required />
-              {isRegistering && <small>Use at least 8 characters.</small>}
-            </label>
+              {isRegistering && <span className="modern-help-text">Use at least 8 characters.</span>}
+            </div>
+
             {isRegistering && (
               <>
-                <label>
-                  Confirm password
+                <div className="modern-form-group">
+                  <label>Confirm password</label>
                   <input type="password" autoComplete="new-password" minLength={8} maxLength={128} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} required />
-                </label>
-                <label>
-                  Preferred language
+                </div>
+                <div className="modern-form-group">
+                  <label>Preferred language</label>
                   <select value={preferredLanguage} onChange={(event) => setPreferredLanguage(event.target.value)}>
                     <option value="en">English</option>
                     <option value="hi">Hindi</option>
                     <option value="or">Odia</option>
                   </select>
-                </label>
+                </div>
               </>
             )}
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="button button-primary button-full" type="submit" disabled={submitting}>
+
+            {error && <p className="modern-form-error" role="alert">{error}</p>}
+            
+            <button className="modern-button-primary" type="submit" disabled={submitting}>
               {submitting ? (isRegistering ? 'Creating account…' : 'Signing in…') : (isRegistering ? 'Create account' : 'Sign in')}
             </button>
           </form>
 
           {!isOrganization && (
-            <p className="auth-footnote">
-              {isRegistering ? 'Already have an account?' : 'New to ScholarSaathi?'}{' '}
-              <button className="auth-mode-link" type="button" onClick={() => changeStudentMode(isRegistering ? 'signin' : 'register')}>
-                {isRegistering ? 'Sign in' : 'Create an account'}
+            <div className="modern-auth-footer">
+              <p>
+                {isRegistering ? 'Already have an account?' : 'New to ScholarSaathi?'}
+              </p>
+              <button type="button" onClick={() => changeStudentMode(isRegistering ? 'signin' : 'register')}>
+                {isRegistering ? 'Sign in instead' : 'Create an account'}
               </button>
-            </p>
+            </div>
           )}
         </div>
       </section>

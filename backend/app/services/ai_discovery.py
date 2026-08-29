@@ -33,9 +33,12 @@ settings = get_settings()
 _CHARS_PER_TOKEN = 3
 _PROMPT_OVERHEAD_TOKENS = 400
 _SAFETY_MARGIN_TOKENS = 600
-_MIN_OUTPUT_TOKENS = 900
+# A four-candidate bundle measured at 546 completion tokens per assessment against
+# openai/gpt-oss-20b. Allowing 620 leaves headroom for a wordier reply, because a
+# completion truncated by max_tokens produces invalid JSON and fails the whole request.
+_OUTPUT_TOKENS_PER_CANDIDATE = 620
+_INTRODUCTION_TOKENS = 700
 _MAX_OUTPUT_TOKENS = 5000
-_OUTPUT_TOKENS_PER_CANDIDATE = 320
 
 
 def _estimate_tokens(payload: object) -> int:
@@ -61,10 +64,12 @@ def _plan_discovery_request(
         available = settings.groq_token_budget - prompt_tokens - _SAFETY_MARGIN_TOKENS
         wanted = min(
             _MAX_OUTPUT_TOKENS,
-            _OUTPUT_TOKENS_PER_CANDIDATE * len(candidates) + _MIN_OUTPUT_TOKENS,
+            _OUTPUT_TOKENS_PER_CANDIDATE * len(candidates) + _INTRODUCTION_TOKENS,
         )
-        if available >= _MIN_OUTPUT_TOKENS:
-            return candidates, min(wanted, available)
+        # Only accept a plan whose full output allowance fits, so the model is never
+        # cut off mid-JSON by a max_tokens value the budget could not cover.
+        if available >= wanted:
+            return candidates, wanted
         candidates = candidates[:-1]
     return [], 0
 

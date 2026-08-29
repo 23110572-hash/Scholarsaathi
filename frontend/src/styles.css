@@ -2091,3 +2091,220 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   color: #0f172a;
   margin-bottom: 1rem;
 }
+
+/* --- Modern Auth Page --- */
+.modern-auth-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('/scholarship-bg.png') center/cover no-repeat;
+  padding: 4rem 1rem;
+}
+
+.modern-auth-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(2, 8, 23, 0.7), rgba(11, 26, 48, 0.85));
+  z-index: 0;
+}
+
+.modern-auth-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 480px;
+}
+
+.modern-auth-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modern-back-link {
+  display: inline-block;
+  color: #64748b;
+  font-size: 0.9rem;
+  text-decoration: none;
+  margin-bottom: 2rem;
+  transition: color 0.2s ease;
+}
+
+.modern-back-link:hover {
+  color: #e67e22;
+}
+
+.modern-auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.modern-auth-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  color: white;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 20px rgba(230, 126, 34, 0.3);
+}
+
+.modern-auth-icon svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.modern-auth-header h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.modern-auth-header p {
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.modern-auth-switch {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 99px;
+  padding: 0.35rem;
+  margin-bottom: 2rem;
+}
+
+.modern-auth-switch button {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modern-auth-switch button.active {
+  background: white;
+  color: #0f172a;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.modern-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modern-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modern-form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modern-form-group label small {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.modern-form-group input,
+.modern-form-group select {
+  padding: 0.875rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  color: #0f172a;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.modern-form-group input:focus,
+.modern-form-group select:focus {
+  outline: none;
+  border-color: #e67e22;
+  box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.2);
+}
+
+.modern-help-text {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.modern-button-primary {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(230, 126, 34, 0.3);
+  transition: all 0.2s ease;
+}
+
+.modern-button-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 25px rgba(230, 126, 34, 0.4);
+}
+
+.modern-button-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.modern-form-error {
+  padding: 0.75rem;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fca5a5;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.modern-auth-footer {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.modern-auth-footer p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.modern-auth-footer button {
+  background: none;
+  border: none;
+  color: #e67e22;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modern-auth-footer button:hover {
+  color: #d35400;
+  text-decoration: underline;
+}
