@@ -20,6 +20,15 @@ Use these to sign in on the live web application and explore the student journey
 
 Sign in at [`/login/student`](https://scholarsaathi-two.vercel.app/login/student). After logging in you can browse the scholarship catalog, ask the AI assistant about eligibility, save opportunities, and prepare an application.
 
+### Provider
+
+| Field | Value |
+| --- | --- |
+| Email | `central.publisher@demo.scholarsaathi.local` |
+| Password | `Demo@ScholarSaathi2026` |
+
+Sign in at [`/login/organization`](https://scholarsaathi-two.vercel.app/login/organization). After logging in you can view your organization dashboard, manage published scholarships, and review student applications.
+
 > These are shared demo accounts on synthetic data. Do not store personal information in them, and do not reuse these passwords anywhere else.
 
 ## Problem
