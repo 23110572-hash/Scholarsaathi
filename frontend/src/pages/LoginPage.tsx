@@ -102,7 +102,7 @@ export function LoginPage() {
           </Link>
 
           <div className="modern-auth-header">
-            <div className="modern-auth-icon"><AccountIcon /></div>
+            <img src="/logo.png" alt="ScholarSaathi Logo" className="modern-auth-logo" />
             <h2>{heading}</h2>
             <p>
               {isOrganization

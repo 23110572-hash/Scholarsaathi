@@ -2097,10 +2097,10 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   position: relative;
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: url('/scholarship-bg.png') center/cover no-repeat;
-  padding: 4rem 1rem;
+  padding: 8rem 1rem 4rem;
 }
 
 .modern-auth-overlay {
@@ -2145,22 +2145,11 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   margin-bottom: 2rem;
 }
 
-.modern-auth-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 4rem;
-  height: 4rem;
-  background: linear-gradient(135deg, #ff9933, #e67e22);
-  color: white;
-  border-radius: 1rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 10px 20px rgba(230, 126, 34, 0.3);
-}
-
-.modern-auth-icon svg {
-  width: 2rem;
-  height: 2rem;
+.modern-auth-logo {
+  display: block;
+  width: 5.5rem;
+  height: auto;
+  margin: 0 auto 1.5rem auto;
 }
 
 .modern-auth-header h2 {
