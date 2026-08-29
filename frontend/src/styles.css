@@ -1984,3 +1984,103 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- Scholarship Detail Page Improved Typography --- */
+.detail-page {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: #334155;
+}
+
+.detail-hero-grid h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.detail-summary {
+  font-size: 1.25rem;
+  color: #475569;
+  line-height: 1.8;
+  margin-bottom: 2rem;
+}
+
+.eligibility-grid article {
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.eligibility-grid article span {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.eligibility-grid article strong {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.knowledge-summary p {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: #334155;
+  margin-top: 0.5rem;
+}
+
+.evidence-list article p {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: #334155;
+  margin-top: 1rem;
+}
+
+.evidence-list article strong {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.application-preview p {
+  font-size: 1.15rem;
+  color: #475569;
+  margin-bottom: 1.5rem;
+}
+
+.application-preview article strong {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-top: 0.5rem;
+  display: block;
+}
+
+.apply-card h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.apply-card dl dt {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.apply-card dl dd {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1rem;
+}
