@@ -2547,3 +2547,320 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   }
 }
 
+
+/* --- Student profile & saved scholarships --- */
+.modern-workspace-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.modern-profile-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #e67e22;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.modern-profile-back:hover {
+  gap: 0.6rem;
+}
+
+.modern-profile-shell {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.modern-profile-shell form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modern-profile-legend {
+  margin: 0.5rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.modern-profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modern-profile-photo {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  box-shadow: 0 8px 20px -8px rgba(230, 126, 34, 0.6);
+}
+
+.modern-profile-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modern-profile-initial {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.modern-profile-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.modern-profile-photo-actions strong {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.modern-profile-photo-actions p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.modern-profile-photo-buttons {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.modern-button-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: #b4342a;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.modern-button-ghost:hover {
+  background: #fdecea;
+  border-color: #f3c3bd;
+}
+
+.modern-button-ghost svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.modern-profile-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modern-profile-progress small {
+  color: #64748b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.modern-profile-progress-bar {
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.modern-profile-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  transition: width 0.3s ease;
+}
+
+.modern-profile-categories {
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+
+.modern-profile-categories legend {
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.modern-profile-hint {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.modern-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.modern-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modern-chip:hover {
+  border-color: #e67e22;
+}
+
+.modern-chip-on {
+  border-color: #e67e22;
+  background: #fff4e8;
+  color: #b45309;
+}
+
+.modern-chip input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #e67e22;
+}
+
+/* Profile summary card in the workspace sidebar */
+.modern-profile-side {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s;
+}
+
+.modern-profile-side:hover {
+  transform: translateY(-2px);
+}
+
+.modern-profile-side-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.modern-profile-side-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  color: #fff;
+  font-weight: 800;
+}
+
+.modern-profile-side-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modern-profile-side strong {
+  display: block;
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.modern-profile-side p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.modern-profile-side-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #e67e22;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: none;
+}
+
+.modern-saved-section {
+  padding-top: 0;
+  background: transparent;
+}
+
+.modern-bookmark-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modern-bookmark-button:hover:not(:disabled) {
+  border-color: #e67e22;
+  color: #e67e22;
+}
+
+.modern-bookmark-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modern-bookmark-on {
+  border-color: #e67e22;
+  background: #fff4e8;
+  color: #b45309;
+}
+
+.modern-bookmark-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.empty-state .modern-button-secondary {
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .modern-profile-identity {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

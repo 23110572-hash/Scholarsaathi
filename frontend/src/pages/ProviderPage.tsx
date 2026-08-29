@@ -18,7 +18,7 @@ const providerSteps = [
 export function ProviderPage() {
   return (
     <main className="modern-workspace-page modern-provider-page">
-      <div className="workspace-container">
+      <div className="modern-container" style={{ padding: '0 2rem' }}>
         <section className="modern-results-heading" style={{ marginTop: '2rem', textAlign: 'center' }}>
           <div className="eyebrow" style={{ justifyContent: 'center', marginBottom: '1rem' }}><span /> Organization-owner publishing infrastructure</div>
           <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', marginBottom: '1rem', color: '#0f172a' }}>Publish directly.<br /><em style={{ color: 'var(--green)', fontStyle: 'normal' }}>Guide every student clearly.</em></h1>
@@ -27,10 +27,10 @@ export function ProviderPage() {
             provider-supplied evidence, publish or pause directly, and manage only their records.
           </p>
           <div className="hero-actions" style={{ justifyContent: 'center', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <Link className="modern-button primary" to="/login/organization">
+            <Link className="modern-button-primary" to="/login/organization">
               Sign in to provider workspace <ArrowIcon />
             </Link>
-            <a className="modern-button secondary" href="#provider-model">See how it works</a>
+            <a className="modern-button-secondary" href="#provider-model">See how it works</a>
           </div>
           <div className="provider-access-note" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.7)', borderRadius: '2rem', fontSize: '0.875rem', color: '#64748b', backdropFilter: 'blur(10px)' }}><ShieldIcon /> Access is restricted to authorized organization members.</div>
         </section>
@@ -147,7 +147,7 @@ export function ProviderPage() {
           <p className="eyebrow" style={{ justifyContent: 'center' }}>Provider access</p>
           <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', margin: '1rem auto 2rem', color: '#0f172a', maxWidth: '800px' }}>Maintain scholarships through one organization-owned workspace.</h2>
           <p style={{ color: '#64748b', fontSize: '1.2rem', marginBottom: '3rem' }}>Authorized organization members can manage publication and application workflows.</p>
-          <Link className="modern-button primary" to="/login/organization" style={{ fontSize: '1.1rem', padding: '1.25rem 3rem' }}>
+          <Link className="modern-button-primary" to="/login/organization" style={{ fontSize: '1.1rem', padding: '1.25rem 3rem' }}>
             Open provider sign in <ArrowIcon />
           </Link>
         </section>
