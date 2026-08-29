@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
 
 :root {
   font-family: 'DM Sans', system-ui, sans-serif;
@@ -1408,4 +1410,41 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+
+/* Modern ScholarSaathi visual system */
+:root {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #132019;
+  background: #f3f5ee;
+  --ink: #132019;
+  --muted: #66746d;
+  --cream: #f3f5ee;
+  --paper: #ffffff;
+  --green: #1b5944;
+  --green-dark: #11241d;
+  --green-soft: #e8f0e8;
+  --lime: #dfff82;
+  --orange: #cc7b38;
+  --blue: #365f74;
+  --line: #d9e0da;
+  --shadow: 0 18px 55px rgba(26, 57, 43, .11);
+}
+body { color: var(--ink); background: var(--cream); }
+h1, h2, h3, strong { font-family: 'Manrope', 'DM Sans', system-ui, sans-serif; }
+.button { border-radius: .8rem; transition: transform .18s ease, background .18s ease, box-shadow .18s ease; }
+.button:hover { transform: translateY(-1px); }
+.button-primary, .provider-primary-button { background: var(--green); box-shadow: 0 10px 24px rgba(27, 89, 68, .18); }
+.button-primary:hover, .provider-primary-button:hover { background: #123f30; box-shadow: 0 14px 30px rgba(27, 89, 68, .24); }
+.button-secondary { border-radius: .8rem; }
+input, select, textarea { border-radius: .7rem; }
+input:focus, select:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(27, 89, 68, .13); }
+a:focus-visible, button:focus-visible { outline-color: rgba(223, 255, 130, .95); outline-offset: 3px; }
+.modern-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.36'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modern-noise { display: none; }
 }

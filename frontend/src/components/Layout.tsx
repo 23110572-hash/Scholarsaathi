@@ -1,80 +1,25 @@
-import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { destinationForRealm, useAuth } from '../context/AuthContext'
-import { MenuIcon } from './Icons'
-
-export function Brand() {
-  return (
-    <Link className="brand" to="/" aria-label="ScholarSaathi home">
-      <img src="/logo.png" alt="ScholarSaathi Logo" style={{ height: '80px', objectFit: 'contain' }} />
-    </Link>
-  )
-}
+import { Link, useLocation } from 'react-router-dom'
+import { SiteBrand, SiteNavigation } from './SiteNavigation'
 
 export function Layout({ children }: PropsWithChildren) {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [menuOpen])
-
-  async function handleLogout() {
-    await logout()
-    navigate('/')
-  }
+  const location = useLocation()
+  const isHome = location.pathname === '/'
 
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <header className="topbar">
-        <Brand />
-        <button
-          className="menu-button"
-          type="button"
-          aria-label="Toggle navigation"
-          aria-controls="main-navigation"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((value) => !value)}
-        >
-          <MenuIcon />
-        </button>
-        <nav
-          id="main-navigation"
-          className={menuOpen ? 'topnav open' : 'topnav'}
-          aria-label="Main navigation"
-          onClick={() => setMenuOpen(false)}
-        >
-          <NavLink to="/" end>Home</NavLink>
-          <NavLink to="/scholarships">Scholarships</NavLink>
-          {user ? (
-            <>
-              <NavLink to={destinationForRealm(user.realm)}>
-                {user.realm === 'STUDENT' ? 'AI workspace' : 'Workspace'}
-              </NavLink>
-              {user.realm === 'STUDENT' && <NavLink to="/student/applications">Applications</NavLink>}
-              <button className="text-button" type="button" onClick={() => void handleLogout()}>Sign out</button>
-            </>
-          ) : (
-            <>
-              <NavLink to="/login/student">Student sign in</NavLink>
-              <NavLink className="nav-cta" to="/providers">Providers</NavLink>
-            </>
-          )}
-        </nav>
-      </header>
+      {!isHome && <SiteNavigation variant="shell" />}
       <div id="main-content" tabIndex={-1}>{children}</div>
-      <footer className="footer">
-        <Brand />
-        <p>For scholarship queries, use the contact information shown on the scholarship page.</p>
-        <span>© 2026 ScholarSaathi</span>
+      <footer className={`border-t px-5 py-10 sm:px-8 ${isHome ? 'border-white/10 bg-[#0d1713] text-white' : 'border-[#d8e0d9] bg-[#f7f9f4] text-[#142019]'}`}>
+        <div className="mx-auto grid max-w-[86rem] items-center gap-7 md:grid-cols-[1fr_1.2fr_auto]">
+          <SiteBrand inverse={isHome} />
+          <p className={`m-0 max-w-xl text-xs leading-relaxed ${isHome ? 'text-white/52' : 'text-[#68756f]'}`}>AI guidance is not an official eligibility decision. Verify requirements and deadlines with the scholarship provider before applying.</p>
+          <div className="grid gap-2 text-xs md:text-right">
+            <span className={isHome ? 'text-white/45' : 'text-[#68756f]'}>© 2026 ScholarSaathi</span>
+            <Link className={isHome ? 'text-white/75 hover:text-white' : 'text-[#245b49]'} to="/providers">Provider information</Link>
+          </div>
+        </div>
       </footer>
     </div>
   )
