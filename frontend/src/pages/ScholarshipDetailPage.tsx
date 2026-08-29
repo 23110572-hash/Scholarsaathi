@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowIcon, BookmarkIcon, BuildingIcon } from '../components/Icons'
+import { ArrowIcon, BookmarkIcon, BuildingIcon, ChatIcon } from '../components/Icons'
+import { useAssistant } from '../context/AssistantContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import type { ScholarshipDetail } from '../types'
+
+/** Common doubts, sent straight to the AI so a student can ask in one tap. */
+const COMMON_DOUBTS = [
+  'What are the eligibility requirements?',
+  'Which documents are required?',
+  'What is the benefit amount?',
+  'When is the application deadline?',
+  'How do I apply for this scholarship?',
+  'How is the selection done?',
+] as const
 
 function formatToken(value: string): string {
   return value.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -17,6 +28,7 @@ function formatDate(value: string | null): string {
 export function ScholarshipDetailPage() {
   const { scholarshipId } = useParams()
   const { user, loading: authLoading } = useAuth()
+  const { openAssistant } = useAssistant()
   const navigate = useNavigate()
   const [scholarship, setScholarship] = useState<ScholarshipDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -93,6 +105,9 @@ export function ScholarshipDetailPage() {
             <p className="detail-summary">{scholarship.summary}</p>
             <div className="tag-row detail-tags">{scholarship.category_tags.map((tag) => <span key={tag}>{formatToken(tag)}</span>)}</div>
             <div className="detail-quick-actions">
+              <button className="button button-ask-doubt" type="button" onClick={() => openAssistant()}>
+                <ChatIcon /> Ask a doubt
+              </button>
               <button className="button button-secondary" type="button" disabled={saving || authLoading} onClick={() => void saveScholarship()}><BookmarkIcon /> {saving ? 'Saving…' : studentSignedIn ? 'Save scholarship' : 'Sign in to save'}</button>
               <a className="inline-link" href={scholarship.official_source_url} target="_blank" rel="noreferrer">Open source page <ArrowIcon /></a>
             </div>
@@ -124,6 +139,32 @@ export function ScholarshipDetailPage() {
           <article><span>Scope</span><strong>{formatToken(scholarship.scope)}</strong></article>
         </div>
         <div className="knowledge-summary"><div><span>Summary</span><p>{scholarship.knowledge_summary}</p></div></div>
+      </section>
+
+      <section className="doubt-section section-pad" aria-labelledby="doubt-heading">
+        <div className="doubt-card">
+          <div className="doubt-card-head">
+            <div className="doubt-card-mark" aria-hidden="true"><ChatIcon /></div>
+            <div>
+              <h2 id="doubt-heading">Have a doubt about this scholarship?</h2>
+              <p>
+                Ask anything about eligibility, documents, benefits, dates, or how to apply.
+                ScholarSaathi AI answers only from what {scholarship.organization.display_name} has
+                published, and shows you the exact section it used.
+              </p>
+            </div>
+          </div>
+          <div className="doubt-chips">
+            {COMMON_DOUBTS.map((doubt) => (
+              <button key={doubt} type="button" onClick={() => openAssistant(doubt)}>
+                {doubt}
+              </button>
+            ))}
+          </div>
+          <button className="button button-ask-doubt" type="button" onClick={() => openAssistant()}>
+            <ChatIcon /> Ask your own question
+          </button>
+        </div>
       </section>
 
       <section className="detail-content detail-content-wide section-pad">

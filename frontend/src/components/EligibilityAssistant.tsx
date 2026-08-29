@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, matchPath, useLocation } from 'react-router-dom'
+import { useAssistant } from '../context/AssistantContext'
 import { useAuth } from '../context/AuthContext'
 import { api, ApiError } from '../lib/api'
 import type {
@@ -241,7 +241,14 @@ export function EligibilityAssistant() {
   const scholarshipId = detailMatch?.params.scholarshipId
   const isVisible = isCatalog || Boolean(scholarshipId)
   const routeKey = scholarshipId ? `detail-${scholarshipId}` : isCatalog ? 'catalog' : 'hidden'
-  const [open, setOpen] = useState(false)
+  const {
+    open,
+    openAssistant,
+    closeAssistant: closePanel,
+    toggleAssistant,
+    pendingQuestion,
+    clearPendingQuestion,
+  } = useAssistant()
   const [draft, setDraft] = useState('')
   const [turns, setTurns] = useState<ConversationTurn[]>([])
   const [facts, setFacts] = useState<KnownFacts>(() => factsFromLocation(location.search))
@@ -249,6 +256,9 @@ export function EligibilityAssistant() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const nextId = useRef(1)
+  // Guards against a queued question racing the in-flight request, since `send` is a
+  // stable callback and cannot read fresh `loading` state.
+  const loadingRef = useRef(false)
   const launcherRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
@@ -290,7 +300,6 @@ export function EligibilityAssistant() {
         : []
 
   useEffect(() => {
-    setOpen(false)
     setDraft('')
     setTurns([])
     setError('')
@@ -320,13 +329,13 @@ export function EligibilityAssistant() {
     inputRef.current?.focus()
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpen(false)
+        closePanel()
         launcherRef.current?.focus()
       }
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [open])
+  }, [open, closePanel])
 
   useEffect(() => {
     if (open && transcriptRef.current) {
@@ -334,64 +343,77 @@ export function EligibilityAssistant() {
     }
   }, [open, turns, loading])
 
+  const send = useCallback(
+    async (rawMessage: string) => {
+      const message = rawMessage.trim()
+      if (!message || loadingRef.current) return
+      loadingRef.current = true
+
+      const id = nextId.current++
+      setTurns((current) => [...current, { id, question: message }])
+      setDraft('')
+      setError('')
+      setLoading(true)
+
+      try {
+        let reply: AssistantReply
+        if (scholarshipId) {
+          const data = await api<ScholarshipQuestionResponse>(
+            `/api/ai/scholarships/${scholarshipId}/questions`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                question: message,
+                preferred_language: user?.preferred_language ?? 'en',
+              }),
+            },
+          )
+          reply = { kind: 'question', data }
+        } else {
+          // Facts accumulated across the conversation travel with every turn, so short
+          // messages like "2nd year" still land in the right slot.
+          const payload: DiscoveryProfile = {
+            ...facts,
+            message,
+            preferred_language: user?.preferred_language ?? 'en',
+          }
+          const data = await api<DiscoveryResponse>('/api/ai/discover', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          setFacts((current) => mergeFacts(current, data.extracted))
+          reply = { kind: 'discovery', data }
+        }
+        setTurns((current) => current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)))
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 429) {
+          setError('That was a lot of questions at once. Give it a minute and try again.')
+        } else {
+          setError(
+            caught instanceof Error ? caught.message : 'The assistant could not answer right now.',
+          )
+        }
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+      }
+    },
+    [scholarshipId, user?.preferred_language, facts],
+  )
+
+  // A page can hand the assistant a question (the "Ask a doubt" buttons). Send it once.
+  useEffect(() => {
+    if (!open || !pendingQuestion) return
+    const question = pendingQuestion
+    clearPendingQuestion()
+    void send(question)
+  }, [open, pendingQuestion, clearPendingQuestion, send])
+
   if (!isVisible) return null
 
   function closeAssistant() {
-    setOpen(false)
+    closePanel()
     launcherRef.current?.focus()
-  }
-
-  async function send(rawMessage: string) {
-    const message = rawMessage.trim()
-    if (!message || loading) return
-
-    const id = nextId.current++
-    setTurns((current) => [...current, { id, question: message }])
-    setDraft('')
-    setError('')
-    setLoading(true)
-
-    try {
-      let reply: AssistantReply
-      if (scholarshipId) {
-        const data = await api<ScholarshipQuestionResponse>(
-          `/api/ai/scholarships/${scholarshipId}/questions`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              question: message,
-              preferred_language: user?.preferred_language ?? 'en',
-            }),
-          },
-        )
-        reply = { kind: 'question', data }
-      } else {
-        // Facts accumulated across the conversation travel with every turn, so short
-        // messages like "2nd year" still land in the right slot.
-        const payload: DiscoveryProfile = {
-          ...facts,
-          message,
-          preferred_language: user?.preferred_language ?? 'en',
-        }
-        const data = await api<DiscoveryResponse>('/api/ai/discover', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        setFacts((current) => mergeFacts(current, data.extracted))
-        reply = { kind: 'discovery', data }
-      }
-      setTurns((current) => current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)))
-    } catch (caught) {
-      if (caught instanceof ApiError && caught.status === 429) {
-        setError('That was a lot of questions at once. Give it a minute and try again.')
-      } else {
-        setError(
-          caught instanceof Error ? caught.message : 'The assistant could not answer right now.',
-        )
-      }
-    } finally {
-      setLoading(false)
-    }
   }
 
   const canSend = !loading && draft.trim().length >= 2
@@ -532,7 +554,7 @@ export function EligibilityAssistant() {
         className="ai-assistant-launcher"
         ref={launcherRef}
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleAssistant}
         aria-label={open ? 'Close scholarship assistant' : 'Open scholarship assistant'}
         aria-expanded={open}
         aria-controls="eligibility-assistant-panel"

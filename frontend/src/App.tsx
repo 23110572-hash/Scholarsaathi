@@ -2,6 +2,7 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { EligibilityAssistant } from './components/EligibilityAssistant'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AssistantProvider } from './context/AssistantContext'
 import { AuthProvider } from './context/AuthContext'
 import { ApplicationPage } from './pages/ApplicationPage'
 import { LandingPage } from './pages/LandingPage'
@@ -28,7 +29,8 @@ function NotFound() {
 export default function App() {
   return (
     <AuthProvider>
-      <Layout>
+      <AssistantProvider>
+        <Layout>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/scholarships" element={<ScholarshipCatalogPage />} />
@@ -63,7 +65,8 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <EligibilityAssistant />
-      </Layout>
+        </Layout>
+      </AssistantProvider>
     </AuthProvider>
   )
 }

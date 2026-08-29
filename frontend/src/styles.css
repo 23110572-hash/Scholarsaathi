@@ -1274,7 +1274,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
   padding: .75rem .85rem;
   margin-bottom: .75rem;
   border: 1px solid #d1cec6;
-  font-size: .75rem;
+  font-size: 1rem;
   line-height: 1.52;
 }
 .ai-message p { margin: 0; }
@@ -1287,7 +1287,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
 .ai-message-assistant { justify-self: start; background: #fff; }
 .ai-privacy-note, .ai-evidence-note, .ai-advisory {
   color: var(--muted);
-  font-size: .62rem;
+  font-size: .85rem;
   line-height: 1.45;
 }
 .ai-privacy-note { padding: 0 .15rem; margin: 0 0 1rem; }
@@ -1311,7 +1311,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
 .ai-missing, .ai-next-step { color: #4e5356; }
 .ai-evidence-note { padding-top: .65rem; border-top: 1px solid #ddd9d0; }
 .ai-citations { display: grid; gap: .35rem; }
-.ai-thinking, .ai-error { padding: .7rem; margin: 0; font-size: .7rem; line-height: 1.45; }
+.ai-thinking, .ai-error { padding: .7rem; margin: 0; font-size: .9rem; line-height: 1.45; }
 .ai-thinking { color: #4d555a; background: #ece8dd; }
 .ai-error { color: #7b2828; background: #f8e4e1; border: 1px solid #e5b8b2; }
 .ai-suggestions {
@@ -1329,7 +1329,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
   color: #4c3439;
   background: #f8f7f3;
   border: 1px solid #c7c3ba;
-  font-size: .64rem;
+  font-size: .9rem;
   line-height: 1.35;
   text-align: left;
 }
@@ -1345,7 +1345,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(120, 47, 58, .4); }
   max-height: 7rem;
   padding: .65rem .7rem;
   resize: vertical;
-  font-size: .72rem;
+  font-size: 1rem;
 }
 .ai-composer button {
   display: grid;
@@ -2976,3 +2976,111 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 
 .ai-assessment-possibly_eligible_needs_information { color: #8a6420; }
 .ai-assessment-cannot_determine_from_published_information { color: #5b6167; }
+
+/* --- Ask a doubt (scholarship detail) --- */
+.button-ask-doubt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  border: 1px solid transparent;
+  font-weight: 700;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.button-ask-doubt:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(230, 126, 34, 0.55);
+}
+
+.button-ask-doubt svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.doubt-section {
+  padding-top: 0;
+}
+
+.doubt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, #fffdf9, #fff7ee);
+}
+
+.doubt-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.doubt-card-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  color: #fff;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  place-items: center;
+}
+
+.doubt-card-mark svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.doubt-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.doubt-card-head p {
+  margin: 0;
+  color: #5c6670;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.doubt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.doubt-chips button {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #e0cdb4;
+  border-radius: 999px;
+  background: #fff;
+  color: #7a4a15;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doubt-chips button:hover {
+  border-color: #e67e22;
+  background: #fff1e2;
+  transform: translateY(-1px);
+}
+
+.doubt-card > .button-ask-doubt {
+  align-self: flex-start;
+}
+
+@media (max-width: 640px) {
+  .doubt-card-head {
+    flex-direction: column;
+  }
+  .doubt-card > .button-ask-doubt {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
