@@ -40,6 +40,11 @@ from app.models import (
 SEED_NAMESPACE = uuid.UUID("52b9b24a-9e5f-4e19-81b1-4da8245b9ae1")
 DEMO_PASSWORD = "Demo@ScholarSaathi2026"
 DEMO_STUDENT_LOGIN = "student@demo.scholarsaathi.local"
+# Reviewer-facing student login published in the README. Kept here so the documented
+# credential still works after a database reset. Must satisfy the 8-character minimum
+# enforced by LoginRequest.password.
+REVIEWER_STUDENT_LOGIN = "krishnaagrawal0706@gmail.com"
+REVIEWER_STUDENT_PASSWORD = "12345678"
 
 
 def stable_id(key: str) -> uuid.UUID:
@@ -379,8 +384,10 @@ def seed_database() -> None:
             return
 
         student_id = stable_id("account:student")
+        reviewer_student_id = stable_id("account:student:reviewer")
         password_hashes = {
             "student": hasher.hash(DEMO_PASSWORD),
+            "reviewer_student": hasher.hash(REVIEWER_STUDENT_PASSWORD),
             **{
                 spec["key"]: hasher.hash(DEMO_PASSWORD)
                 for spec in ORGANIZATION_SPECS
@@ -393,6 +400,14 @@ def seed_database() -> None:
                 id=student_id,
                 login_identifier=DEMO_STUDENT_LOGIN,
                 password_hash=password_hashes["student"],
+                realm=AccountRealm.STUDENT,
+                status=AccountStatus.ACTIVE,
+            ),
+            Account(
+                domain=OwnershipDomain.STUDENT,
+                id=reviewer_student_id,
+                login_identifier=REVIEWER_STUDENT_LOGIN,
+                password_hash=password_hashes["reviewer_student"],
                 realm=AccountRealm.STUDENT,
                 status=AccountStatus.ACTIVE,
             ),
@@ -414,13 +429,21 @@ def seed_database() -> None:
             )
 
         session.add_all(accounts)
-        session.add(
-            StudentSetting(
-                account_id=student_id,
-                account_domain=OwnershipDomain.STUDENT,
-                display_alias="Aarav (Synthetic)",
-                preferred_language="en",
-            )
+        session.add_all(
+            [
+                StudentSetting(
+                    account_id=student_id,
+                    account_domain=OwnershipDomain.STUDENT,
+                    display_alias="Aarav (Synthetic)",
+                    preferred_language="en",
+                ),
+                StudentSetting(
+                    account_id=reviewer_student_id,
+                    account_domain=OwnershipDomain.STUDENT,
+                    display_alias="Krishna",
+                    preferred_language="en",
+                ),
+            ]
         )
         session.flush()
 

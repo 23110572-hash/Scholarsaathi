@@ -5,7 +5,7 @@ import { SiteBrand, SiteNavigation } from './SiteNavigation'
 export function Layout({ children }: PropsWithChildren) {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const showFooter = !isHome && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login')
+  const showFooter = !isHome && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
 
   return (
     <div className="site-shell">

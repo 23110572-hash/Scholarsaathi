@@ -7,6 +7,21 @@
 - **Web application:** https://scholarsaathi-two.vercel.app
 - **API:** https://scholarsaathi.onrender.com
 
+## Demo Credentials
+
+Use these to sign in on the live web application and explore the student journey.
+
+### Student
+
+| Field | Value |
+| --- | --- |
+| Email | `krishnaagrawal0706@gmail.com` |
+| Password | `12345678` |
+
+Sign in at [`/login/student`](https://scholarsaathi-two.vercel.app/login/student). After logging in you can browse the scholarship catalog, ask the AI assistant about eligibility, save opportunities, and prepare an application.
+
+> These are shared demo accounts on synthetic data. Do not store personal information in them, and do not reuse these passwords anywhere else.
+
 ## Problem
 
 Scholarship information is fragmented across portals, PDFs, notices, and provider websites. Students struggle to understand whether they qualify, which information is current, and what to do next. Generic AI search can make this worse by mixing rules between schemes or presenting guesses as facts.

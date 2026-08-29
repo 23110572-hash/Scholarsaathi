@@ -2347,3 +2347,186 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   border-bottom: 1px solid rgba(0,0,0,0.05);
   background: white;
 }
+
+/* --- Modern Student Workspace --- */
+.modern-workspace-page {
+  position: relative;
+  min-height: 100vh;
+  background: url('/scholarship-bg.png') center/cover fixed;
+}
+
+.modern-workspace-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(248, 250, 252, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  z-index: 0;
+}
+
+.modern-workspace-content {
+  position: relative;
+  z-index: 10;
+  padding-top: 6rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.modern-workspace-intro {
+  margin-bottom: 2rem;
+}
+
+.modern-workspace-intro h1 {
+  font-size: clamp(2.5rem, 4vw, 4rem);
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.modern-section-kicker {
+  color: #e67e22;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.modern-discovery-shell {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .modern-discovery-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modern-glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1);
+}
+
+.modern-large-form label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modern-large-form input,
+.modern-large-form select,
+.modern-large-form textarea {
+  font-size: 1.15rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+}
+
+.modern-large-form input:focus,
+.modern-large-form select:focus,
+.modern-large-form textarea:focus {
+  border-color: #e67e22;
+  box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.2);
+  outline: none;
+}
+
+.modern-assistant-heading {
+  margin-bottom: 1.5rem;
+}
+
+.modern-assistant-heading strong {
+  display: block;
+  font-size: 1.75rem;
+  color: #0f172a;
+}
+
+.modern-assistant-heading small {
+  color: #64748b;
+  font-size: 1.1rem;
+}
+
+.modern-workspace-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.modern-side-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modern-side-card span {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.modern-side-card strong {
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+
+.modern-dark-side {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: white;
+  border: none;
+}
+
+.modern-dark-side span {
+  color: #94a3b8;
+}
+
+.modern-dark-side strong {
+  color: white;
+}
+
+.modern-dark-side p {
+  color: #cbd5e1;
+}
+
+.modern-link-side {
+  text-decoration: none;
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  color: white;
+  border: none;
+  transition: transform 0.2s;
+}
+
+.modern-link-side:hover {
+  transform: translateY(-2px);
+}
+
+.modern-link-side span {
+  color: rgba(255,255,255,0.8);
+}
+
+.modern-link-side strong {
+  color: white;
+}
+
+.modern-results-heading {
+  margin: 3rem 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.modern-results-heading h2 {
+  font-size: 2.2rem;
+  color: #0f172a;
+}
+

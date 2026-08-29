@@ -101,24 +101,26 @@ export function StudentDashboard() {
   const displayedScholarships = discovery?.candidates ?? catalog
 
   return (
-    <main className="workspace-page">
-      <section className="workspace-intro section-pad">
-        <div>
-          <p className="section-kicker">Student workspace</p>
-          <h1>Hello, {user?.display_alias?.replace(/\s*\([^)]*\)\s*$/, '') ?? 'student'}.</h1>
-          <p>Use your details to search scholarships.</p>
-        </div>
-      </section>
+    <main className="modern-workspace-page">
+      <div className="modern-workspace-overlay"></div>
+      <div className="modern-workspace-content">
+        <section className="modern-workspace-intro section-pad">
+          <div>
+            <p className="modern-section-kicker">Student workspace</p>
+            <h1>Hello, {user?.display_alias?.replace(/\s*\([^)]*\)\s*$/, '') ?? 'student'}.</h1>
+            <p>Use your details to search for scholarships.</p>
+          </div>
+        </section>
 
-      <section className="discovery-shell section-pad">
-        <div className="assistant-panel">
-          <div className="assistant-heading">
+        <section className="modern-discovery-shell section-pad">
+          <div className="modern-assistant-panel modern-glass-card">
+            <div className="modern-assistant-heading">
             <div><strong>Scholarship search</strong><small>Enter your details below</small></div>
           </div>
-          <div className="assistant-message">
-            <p>Review each scholarship’s eligibility, deadline, and application instructions before applying.</p>
-          </div>
-          <form className="discovery-form" onSubmit={(event) => void handleDiscover(event)}>
+            <div className="modern-assistant-message">
+              <p>Review each scholarship’s eligibility, deadline, and application instructions before applying.</p>
+            </div>
+            <form className="discovery-form modern-large-form" onSubmit={(event) => void handleDiscover(event)}>
             <div className="form-grid compact-grid">
               <label>State / UT
                 <select value={profile.state} onChange={(e) => setProfile({ ...profile, state: e.target.value })}>
@@ -161,31 +163,31 @@ export function StudentDashboard() {
             <label>What would you like help with?
               <textarea rows={3} value={profile.message} onChange={(e) => setProfile({ ...profile, message: e.target.value })} />
             </label>
-            <button className="button button-primary button-full" type="submit" disabled={searching}>
+            <button className="modern-button-primary button-full" type="submit" disabled={searching}>
               <SearchIcon /> {searching ? 'Searching scholarships…' : 'Find scholarships'}
             </button>
           </form>
-          <p className="sensitive-warning">Do not enter Aadhaar, PAN, bank details, passwords, or OTPs.</p>
+          <p className="modern-sensitive-warning">Do not enter Aadhaar, PAN, bank details, passwords, or OTPs.</p>
         </div>
 
-        <aside className="workspace-side">
-          <div className="side-card dark-side-card">
+        <aside className="modern-workspace-side">
+          <div className="modern-side-card modern-glass-card modern-dark-side">
             <span>Search</span><strong>Ready</strong>
             <p>Complete a search, review the details, and begin an application when ready.</p>
           </div>
-          <Link className="side-card link-side-card" to="/student/applications">
+          <Link className="modern-side-card modern-glass-card modern-link-side" to="/student/applications">
             <span>Applications</span><strong>View your timeline</strong><ArrowIcon />
           </Link>
-          <div className="side-card">
+          <div className="modern-side-card modern-glass-card">
             <span>Scholarship list</span><strong>{catalog.length} currently shown</strong>
             <p>Use the scholarship catalog to filter by provider, state, education level, or deadline.</p>
           </div>
         </aside>
       </section>
 
-      <section className="results-section section-pad" aria-live="polite">
-        <div className="results-heading">
-          <div><p className="section-kicker">{discovery ? 'Search results' : 'Scholarships'}</p>
+      <section className="modern-results-section section-pad" aria-live="polite">
+        <div className="modern-results-heading">
+          <div><p className="modern-section-kicker">{discovery ? 'Search results' : 'Scholarships'}</p>
             <h2>{discovery ? `${displayedScholarships.length} scholarships to review` : 'Browse scholarships'}</h2></div>
           <span>{loading ? 'Loading…' : `${displayedScholarships.length} shown`}</span>
         </div>
@@ -206,6 +208,7 @@ export function StudentDashboard() {
           </div>
         )}
       </section>
+      </div>
     </main>
   )
 }
