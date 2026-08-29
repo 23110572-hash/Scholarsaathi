@@ -43,21 +43,6 @@ def _candidate_query(profile: DiscoveryProfile):
                 ScholarshipVersion.course_families.any("STEM"),
             )
         )
-    if profile.message:
-        words = [word for word in profile.message.split() if len(word) >= 4][:6]
-        if words:
-            query = query.where(
-                or_(
-                    *[
-                        or_(
-                            ScholarshipVersion.title.ilike(f"%{word}%"),
-                            ScholarshipVersion.summary.ilike(f"%{word}%"),
-                            ScholarshipVersion.knowledge_summary.ilike(f"%{word}%"),
-                        )
-                        for word in words
-                    ]
-                )
-            )
     return query.order_by(ScholarshipVersion.application_deadline_at).limit(12)
 
 

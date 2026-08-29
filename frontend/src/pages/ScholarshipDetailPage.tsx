@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowIcon, BookmarkIcon, BuildingIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
-import type { ScholarshipDetail, ScholarshipQuestionResponse } from '../types'
+import type { ScholarshipDetail } from '../types'
 
 function formatToken(value: string): string {
   return value.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -15,21 +14,12 @@ function formatDate(value: string | null): string {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
 }
 
-const answerLabels: Record<string, string> = {
-  SUPPORTED_BY_PROVIDER_SOURCE: 'Answer',
-  MORE_INFORMATION_NEEDED: 'More information needed',
-  PROVIDER_CONFIRMATION_REQUIRED: 'Check with the provider',
-}
-
 export function ScholarshipDetailPage() {
   const { scholarshipId } = useParams()
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [scholarship, setScholarship] = useState<ScholarshipDetail | null>(null)
-  const [question, setQuestion] = useState('What are the main eligibility requirements?')
-  const [answer, setAnswer] = useState<ScholarshipQuestionResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [asking, setAsking] = useState(false)
   const [starting, setStarting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -57,24 +47,6 @@ export function ScholarshipDetailPage() {
       return false
     }
     return true
-  }
-
-  async function askQuestion(event: FormEvent) {
-    event.preventDefault()
-    if (!scholarshipId) return
-    setAsking(true)
-    setActionError('')
-    setNotice('')
-    try {
-      setAnswer(await api<ScholarshipQuestionResponse>(`/api/ai/scholarships/${scholarshipId}/questions`, {
-        method: 'POST',
-        body: JSON.stringify({ question, preferred_language: user?.preferred_language ?? 'en' }),
-      }))
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : 'The question could not be answered')
-    } finally {
-      setAsking(false)
-    }
   }
 
   async function saveScholarship() {
@@ -124,6 +96,8 @@ export function ScholarshipDetailPage() {
               <button className="button button-secondary" type="button" disabled={saving || authLoading} onClick={() => void saveScholarship()}><BookmarkIcon /> {saving ? 'Saving…' : studentSignedIn ? 'Save scholarship' : 'Sign in to save'}</button>
               <a className="inline-link" href={scholarship.official_source_url} target="_blank" rel="noreferrer">Open source page <ArrowIcon /></a>
             </div>
+            {notice && <p className="action-notice">{notice}</p>}
+            {actionError && <p className="form-error" role="alert">{actionError}</p>}
           </div>
           <aside className="apply-card">
             <span>Academic year {scholarship.academic_year}</span>
@@ -152,7 +126,7 @@ export function ScholarshipDetailPage() {
         <div className="knowledge-summary"><div><span>Summary</span><p>{scholarship.knowledge_summary}</p></div></div>
       </section>
 
-      <section className="detail-content section-pad">
+      <section className="detail-content detail-content-wide section-pad">
         <div className="evidence-column">
           <div className="section-heading left-heading"><h2>Scholarship information</h2><p>Read the sections supplied for this scholarship.</p></div>
           <div className="evidence-list">
@@ -171,25 +145,6 @@ export function ScholarshipDetailPage() {
             <section className="application-preview"><h2>Application requirements</h2><p>Review the information requested before starting.</p><div>{scholarship.application_fields.map((field) => <article key={field.id}><span>{formatToken(field.field_type)}</span><strong>{field.label}</strong><small>{field.required ? 'Required' : 'Optional'}{field.help_text ? ` · ${field.help_text}` : ''}</small></article>)}</div></section>
           )}
         </div>
-
-        <aside className="question-panel">
-          <div className="question-panel-heading"><h2>Ask about this scholarship</h2><p>Ask about eligibility, benefits, dates, documents, or how to apply.</p></div>
-          <form onSubmit={(event) => void askQuestion(event)}>
-            <label>Your question<textarea rows={5} minLength={3} maxLength={1200} value={question} onChange={(event) => setQuestion(event.target.value)} /></label>
-            <button className="button button-primary button-full" type="submit" disabled={asking}>{asking ? 'Finding an answer…' : 'Ask ScholarSaathi'}</button>
-          </form>
-          {answer && (
-            <div className="answer-card" aria-live="polite">
-              <span>{answerLabels[answer.label] ?? 'Answer'}</span>
-              <p>{answer.answer}</p>
-              {answer.citations.map((citation) => <a key={citation.citation_id} href={`#${citation.citation_id}`}>Source: {citation.section_title}</a>)}
-              {answer.suggested_questions.length > 0 && <div className="question-suggestions">{answer.suggested_questions.map((suggestion) => <button key={suggestion} type="button" onClick={() => setQuestion(suggestion)}>{suggestion}</button>)}</div>}
-            </div>
-          )}
-          {notice && <p className="action-notice">{notice}</p>}
-          {actionError && <p className="form-error" role="alert">{actionError}</p>}
-          <p className="question-note">Check the source page or contact the provider before applying.</p>
-        </aside>
       </section>
     </main>
   )

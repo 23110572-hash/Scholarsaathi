@@ -50,6 +50,18 @@ export interface ScholarshipList {
   total: number
 }
 
+export interface DiscoveryProfile {
+  message?: string
+  state?: string
+  education_level?: string
+  course?: string
+  course_year?: number
+  marks_percentage?: number
+  family_income_range?: string
+  categories?: string[]
+  preferred_language: string
+}
+
 export interface Evidence {
   citation_id: string
   section_title: string

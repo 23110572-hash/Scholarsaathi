@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.agents.scholarship_ai import AIWorkflowError
 from app.database import get_db
-from app.dependencies import AuthContext, require_student
 from app.rate_limit import require_public_ai_capacity
 from app.schemas import (
     DiscoveryProfile,
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/api/ai", tags=["AI discovery"])
 @router.post("/discover", response_model=DiscoveryResponse)
 def discover(
     profile: DiscoveryProfile,
-    _auth: AuthContext = Depends(require_student),
+    _rate_limit: None = Depends(require_public_ai_capacity),
     db: Session = Depends(get_db),
 ) -> DiscoveryResponse:
     try:

@@ -89,3 +89,29 @@ export function MenuIcon(props: IconProps) {
     </IconBase>
   )
 }
+
+export function ChatIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M21 12a8 8 0 0 1-8 8H6l-4 2 1.4-4.2A9 9 0 1 1 21 12Z" />
+      <path d="M8 12h.01M12 12h.01M16 12h.01" />
+    </IconBase>
+  )
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m6 6 12 12M18 6 6 18" />
+    </IconBase>
+  )
+}
+
+export function SendIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+      <path d="M22 2 11 13" />
+    </IconBase>
+  )
+}

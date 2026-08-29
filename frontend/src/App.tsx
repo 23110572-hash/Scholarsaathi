@@ -1,4 +1,5 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { EligibilityAssistant } from './components/EligibilityAssistant'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/login" element={<Navigate to="/login/student" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <EligibilityAssistant />
       </Layout>
     </AuthProvider>
   )
