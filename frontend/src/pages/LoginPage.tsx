@@ -41,7 +41,9 @@ export function LoginPage() {
   if (realm !== 'student' && realm !== 'organization') {
     return <Navigate to="/login/student" replace />
   }
-  if (user) {
+  const userRealmNormalized = user?.realm === 'STUDENT' ? 'student' : 'organization'
+  
+  if (user && userRealmNormalized === selectedRealm) {
     const destination = user.realm === 'STUDENT' && returnTo ? returnTo : destinationForRealm(user.realm)
     return <Navigate to={destination} replace />
   }
@@ -112,6 +114,12 @@ export function LoginPage() {
                   : 'Use your student account.'}
             </p>
           </div>
+
+          {user && userRealmNormalized !== selectedRealm && (
+            <div className="modern-form-error" style={{ marginBottom: '1.5rem', background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>
+              You are currently logged in as a <strong>{user.realm === 'STUDENT' ? 'Student' : 'Provider'}</strong>. Signing in here will switch your account.
+            </div>
+          )}
 
           {!isOrganization && (
             <div className="modern-auth-switch" role="group" aria-label="Student account access">
