@@ -2297,3 +2297,53 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   color: #d35400;
   text-decoration: underline;
 }
+
+/* --- Modern AI Assistant Overrides --- */
+.ai-assistant-panel {
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 420px) {
+  .ai-assistant-panel {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+}
+
+.ai-message p {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.ai-message-assistant {
+  background: #f1f5f9;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  color: #334155;
+}
+
+.ai-message-user {
+  background: linear-gradient(135deg, #ff9933, #e67e22);
+  color: white;
+  border-radius: 1rem 1rem 0.25rem 1rem;
+}
+
+.ai-assistant-mark {
+  background: transparent;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  box-shadow: none;
+}
+
+.ai-transcript {
+  padding-bottom: 1rem;
+}
+
+.ai-assistant-header {
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  background: white;
+}

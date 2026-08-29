@@ -230,7 +230,9 @@ export function EligibilityAssistant() {
       {open && (
         <aside className="ai-assistant-panel" id="eligibility-assistant-panel" aria-labelledby="eligibility-assistant-title">
           <header className="ai-assistant-header">
-            <div className="ai-assistant-mark"><SparkIcon /></div>
+            <div className="ai-assistant-mark">
+              <img src="/logo.png" alt="ScholarSaathi AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
             <div>
               <h2 id="eligibility-assistant-title">ScholarSaathi AI</h2>
               <p>{scholarshipId ? 'Ask about this scholarship' : 'Find scholarships that may fit you'}</p>
@@ -246,7 +248,6 @@ export function EligibilityAssistant() {
                 ? 'Ask me about eligibility, benefits, dates, documents, or the application process. I answer from provider-confirmed information.'
                 : 'Tell me your state, course, study year, marks, family-income range, and category. I’ll compare your details with provider-confirmed scholarship information.'}</p>
             </div>
-            <p className="ai-privacy-note">Do not enter your name, ID numbers, phone number, or upload documents. This chat stays only in this browser session.</p>
 
             {turns.map((turn) => (
               <div className="ai-turn" key={turn.id}>
