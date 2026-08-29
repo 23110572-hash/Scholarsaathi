@@ -42,8 +42,8 @@ export const PrismaHero = () => {
             <div className="col-span-12 flex flex-col gap-5 lg:col-span-6 lg:pt-0 self-start mt-[-3rem] sm:mt-[-5rem] md:mt-[-7rem] lg:mt-[-12rem] xl:mt-[-14rem] relative z-10">
               
               <p
-                className="text-sm text-[#F6F8FB]/95 sm:text-base md:text-lg lg:text-xl font-light drop-shadow-lg max-w-3xl"
-                style={{ lineHeight: 1.5 }}
+                className="text-sm text-white sm:text-base md:text-lg lg:text-xl font-medium max-w-3xl"
+                style={{ lineHeight: 1.5, textShadow: '0 2px 10px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.8)' }}
               >
                 Students are searching for scholarships. Find the perfect scholarship for your studies in the cloud. Let ScholarSaathi guide you through the opportunities and help you secure your future.
               </p>
