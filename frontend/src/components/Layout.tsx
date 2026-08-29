@@ -5,12 +5,13 @@ import { SiteBrand, SiteNavigation } from './SiteNavigation'
 export function Layout({ children }: PropsWithChildren) {
   const location = useLocation()
   const isHome = location.pathname === '/'
-  const showFooter = !isHome && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
+  const isProvider = location.pathname === '/providers'
+  const showFooter = !isHome && !isProvider && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
 
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      {!isHome && <SiteNavigation variant="shell" />}
+      {!isHome && !isProvider && <SiteNavigation variant="shell" />}
       <div id="main-content" tabIndex={-1}>{children}</div>
       {showFooter && (
         <footer className="border-t-4 border-[#ff9933] bg-[#f7f9fd] px-5 py-10 text-[#101827] sm:px-8">
