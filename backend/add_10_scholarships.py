@@ -8,6 +8,7 @@ from app.models import (
     Organization,
     Scholarship,
     ScholarshipVersion,
+    SourceDocument,
     KnowledgeChunk,
     ApplicationTemplate,
     OwnershipDomain,
@@ -84,6 +85,7 @@ def main():
                 application_deadline_at=timestamp(11, 30, 23),
                 official_source_url=f"https://provider.gov.in/demo/{slug}",
                 provider_helpdesk_url="https://provider.gov.in/help",
+                last_provider_confirmed_at=timestamp(8, 20),
                 created_by=publisher_id,
                 published_by=publisher_id,
                 published_at=timestamp(8, 20),
@@ -106,6 +108,30 @@ def main():
             )
             session.add(template)
             
+        # Create Source Document
+        source_id = stable_id(f"source-document:{slug}:guidelines")
+        source = session.query(SourceDocument).filter_by(id=source_id).first()
+        if not source:
+            source = SourceDocument(
+                domain=OwnershipDomain.CENTRAL_GOVERNMENT,
+                id=source_id,
+                organization_id=org.id,
+                scholarship_version_id=version_id,
+                display_name=f"{title} — Synthetic Guidelines",
+                source_kind="PROVIDER_GUIDELINE",
+                content_type="text/plain",
+                size_bytes=100,
+                storage_key=f"synthetic/{slug}/guidelines.txt",
+                source_url=f"https://provider.gov.in/demo/{slug}/guidelines",
+                checksum_sha256="mock_hash_12345",
+                extracted_text="Applicants must be enrolled in an undergraduate programme. The income ceiling is ₹8,00,000.",
+                usage_rights_confirmed_at=timestamp(8, 19),
+                confirmation_status="OWNER_CONFIRMED",
+                uploaded_by=publisher_id,
+            )
+            session.add(source)
+            session.flush()
+
         # Create Knowledge Chunk
         chunk_id = stable_id(f"chunk:{slug}:eligibility")
         chunk = session.query(KnowledgeChunk).filter_by(id=chunk_id).first()
@@ -115,7 +141,7 @@ def main():
                 id=chunk_id,
                 scholarship_version_id=version_id,
                 organization_id=org.id,
-                # source_document_id=stable_id(f"doc:{slug}"), # omitting this to avoid FK violation if it's not created
+                source_document_id=source_id,
                 ordinal=1,
                 page_number=1,
                 section_title="Eligibility",
