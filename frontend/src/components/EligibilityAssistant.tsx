@@ -10,6 +10,7 @@ import type {
   DiscoveryResponse,
   ScholarshipAssessment,
   ScholarshipQuestionResponse,
+  StateOption,
 } from '../types'
 import { CloseIcon, SendIcon } from './Icons'
 
@@ -62,6 +63,45 @@ const detailLabels: Record<ChatDetailKey, string> = {
   marks_percentage: 'marks percentage',
   family_income_range: 'family income range',
   categories: 'category',
+}
+
+// The API stores normalised uppercase tokens. These turn them back into something a
+// student recognises, with a generic fallback for anything not listed.
+const courseLabels: Record<string, string> = {
+  BTECH: 'B.Tech',
+  BE: 'B.E.',
+  BARCH: 'B.Arch',
+  BSC: 'B.Sc',
+  BCOM: 'B.Com',
+  BA: 'B.A.',
+  MBBS: 'MBBS',
+  TECHNICAL_DIPLOMA: 'Technical diploma',
+  STEM: 'STEM',
+  ALL_UNDERGRADUATE: 'Any undergraduate course',
+  ALL_RECOGNIZED_COURSES: 'Any recognised course',
+}
+
+const educationLabels: Record<string, string> = {
+  DIPLOMA: 'Diploma',
+  UNDERGRADUATE: 'Undergraduate',
+  POSTGRADUATE: 'Postgraduate',
+  DOCTORAL: 'Doctoral',
+  CLASS_11_12: 'Class 11–12',
+}
+
+const incomeLabels: Record<string, string> = {
+  UP_TO_250000: 'Income up to ₹2.5L',
+  '250001_TO_400000': 'Income ₹2.5–4L',
+  '400001_TO_600000': 'Income ₹4–6L',
+  '600001_TO_800000': 'Income ₹6–8L',
+  ABOVE_800000: 'Income above ₹8L',
+}
+
+function titleCase(value: string): string {
+  return value
+    .replaceAll('_', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
 function listDetails(keys: ChatDetailKey[]): string {
@@ -205,6 +245,7 @@ export function EligibilityAssistant() {
   const [draft, setDraft] = useState('')
   const [turns, setTurns] = useState<ConversationTurn[]>([])
   const [facts, setFacts] = useState<KnownFacts>(() => factsFromLocation(location.search))
+  const [stateNames, setStateNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const nextId = useRef(1)
@@ -219,6 +260,25 @@ export function EligibilityAssistant() {
         : ['Hello', 'I study BTech in Odisha', 'What documents do I usually need?'],
     [scholarshipId],
   )
+
+  // Human-readable summary of what the assistant has picked up so far.
+  const factPills = useMemo(() => {
+    const pills: string[] = []
+    if (facts.state) pills.push(stateNames[facts.state] ?? facts.state)
+    if (facts.education_level) {
+      pills.push(educationLabels[facts.education_level] ?? titleCase(facts.education_level))
+    }
+    if (facts.course) pills.push(courseLabels[facts.course] ?? titleCase(facts.course))
+    if (facts.course_year !== undefined) pills.push(`Year ${facts.course_year}`)
+    if (facts.marks_percentage !== undefined) pills.push(`${facts.marks_percentage}% marks`)
+    if (facts.family_income_range) {
+      pills.push(
+        incomeLabels[facts.family_income_range] ?? titleCase(facts.family_income_range),
+      )
+    }
+    facts.categories?.forEach((category) => pills.push(titleCase(category)))
+    return pills
+  }, [facts, stateNames])
 
   // The assistant's own suggested replies from the most recent turn, if any.
   const latestReply = turns[turns.length - 1]?.reply
@@ -237,6 +297,23 @@ export function EligibilityAssistant() {
     setFacts(factsFromLocation(location.search))
     // Resetting per route keeps a detail-page conversation from leaking into the catalog.
   }, [routeKey, location.search])
+
+  // State names are only needed to label the pills, so fetch them once the panel opens.
+  useEffect(() => {
+    if (!open || Object.keys(stateNames).length > 0) return
+    let cancelled = false
+    void api<StateOption[]>('/api/states')
+      .then((options) => {
+        if (cancelled) return
+        setStateNames(Object.fromEntries(options.map((option) => [option.code, option.name])))
+      })
+      .catch(() => {
+        // Falls back to showing the raw 2-letter code, which is still meaningful.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, stateNames])
 
   useEffect(() => {
     if (!open) return
@@ -317,7 +394,6 @@ export function EligibilityAssistant() {
     }
   }
 
-  const factCount = Object.keys(facts).length
   const canSend = !loading && draft.trim().length >= 2
 
   return (
@@ -350,23 +426,20 @@ export function EligibilityAssistant() {
             </button>
           </header>
 
-          {!scholarshipId && factCount > 0 && (
-            <div className="ai-fact-strip" aria-label="Details you have shared">
-              {facts.state && <span className="ai-fact-pill">{facts.state}</span>}
-              {facts.course && <span className="ai-fact-pill">{facts.course}</span>}
-              {facts.education_level && <span className="ai-fact-pill">{facts.education_level}</span>}
-              {facts.course_year !== undefined && (
-                <span className="ai-fact-pill">Year {facts.course_year}</span>
-              )}
-              {facts.marks_percentage !== undefined && (
-                <span className="ai-fact-pill">{facts.marks_percentage}%</span>
-              )}
-              {facts.family_income_range && (
-                <span className="ai-fact-pill">{facts.family_income_range.replaceAll('_', ' ')}</span>
-              )}
-              {facts.categories?.map((category) => (
-                <span className="ai-fact-pill" key={category}>{category.replaceAll('_', ' ')}</span>
+          {!scholarshipId && factPills.length > 0 && (
+            <div className="ai-fact-strip">
+              <span className="ai-fact-strip-label">Using</span>
+              {factPills.map((pill) => (
+                <span className="ai-fact-pill" key={pill}>{pill}</span>
               ))}
+              <button
+                className="ai-fact-clear"
+                type="button"
+                onClick={() => setFacts({})}
+                aria-label="Clear the details you have shared"
+              >
+                Clear
+              </button>
             </div>
           )}
 
