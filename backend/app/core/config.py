@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     session_cookie_name: str = "scholarsaathi_session"
     session_cookie_secure: bool = False
     session_ttl_hours: int = 24
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "https://scholarsaathi-two.vercel.app"
     groq_api_key: SecretStr | None = None
     groq_model: str = "openai/gpt-oss-20b"
     groq_timeout_seconds: float = Field(default=45.0, gt=0, le=120)

@@ -2,6 +2,11 @@
 
 **One trusted scholarship journey—from discovery to decision.**
 
+## Live Platform
+
+- **Web application:** https://scholarsaathi-two.vercel.app
+- **API:** https://scholarsaathi.onrender.com
+
 ## Problem
 
 Scholarship information is fragmented across portals, PDFs, notices, and provider websites. Students struggle to understand whether they qualify, which information is current, and what to do next. Generic AI search can make this worse by mixing rules between schemes or presenting guesses as facts.
