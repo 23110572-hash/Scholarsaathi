@@ -1,4 +1,4 @@
-import { GraduationCap, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { destinationForRealm, useAuth } from '@/context/AuthContext'
@@ -18,13 +18,19 @@ interface SiteBrandProps {
 export function SiteBrand({ inverse = false, compact = false }: SiteBrandProps) {
   return (
     <Link className="inline-flex items-center gap-3" to="/" aria-label="ScholarSaathi home">
-      <span className={`grid h-10 w-10 place-items-center rounded-full ${inverse ? 'bg-[#e8f6b5] text-[#102019]' : 'bg-[#163f33] text-white'}`}>
-        <GraduationCap aria-hidden="true" className="h-5 w-5" />
-      </span>
-      <span className="grid leading-none">
-        <strong className={`text-[0.95rem] font-semibold tracking-[-0.035em] ${inverse ? 'text-white' : 'text-[#152019]'}`}>ScholarSaathi</strong>
-        {!compact && <small className={`mt-1 text-[0.58rem] font-medium tracking-[0.14em] uppercase ${inverse ? 'text-white/55' : 'text-[#68736d]'}`}>Scholarship companion</small>}
-      </span>
+      <img
+        src="/logo.png"
+        alt=""
+        width={64}
+        height={64}
+        className="h-14 w-14 shrink-0 object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.28)]"
+      />
+      {!compact && (
+        <span className="grid leading-none">
+          <strong className={`text-[0.98rem] font-semibold tracking-[-0.035em] ${inverse ? 'text-[#ffffff]' : 'text-[#152019]'}`}>ScholarSaathi</strong>
+          <small className={`mt-1 text-[0.58rem] font-semibold tracking-[0.14em] uppercase ${inverse ? 'text-[#d9e2dc]' : 'text-[#68736d]'}`}>Scholarship companion</small>
+        </span>
+      )}
     </Link>
   )
 }
@@ -66,13 +72,13 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
   }
 
   const primaryLinkClass = ({ isActive }: { isActive: boolean }) => [
-    'relative rounded-full px-3 py-2 text-xs font-semibold transition-colors lg:px-4 lg:text-[0.82rem]',
-    isHero ? 'text-white/72 hover:text-white' : 'text-[#52605a] hover:text-[#132019]',
-    isActive ? (isHero ? 'bg-white/12 text-white' : 'bg-[#e9eee9] text-[#173f33]') : '',
+    'relative rounded-full px-4 py-2.5 text-[0.82rem] font-bold transition-colors lg:px-5',
+    isHero ? 'text-[#f7faf6] hover:bg-white/10 hover:text-[#ffffff]' : 'text-[#35443d] hover:bg-[#edf2ed] hover:text-[#132019]',
+    isActive ? (isHero ? 'bg-[#dfff82] text-[#102019] shadow-[0_4px_14px_rgba(0,0,0,0.25)]' : 'bg-[#dce9df] text-[#173f33]') : '',
   ].join(' ')
 
   const accountLinkClass = isHero
-    ? 'inline-flex min-h-10 items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-white/18'
+    ? 'inline-flex min-h-10 items-center gap-2 rounded-full border border-white/35 bg-[#07100c]/85 px-4 text-xs font-bold text-[#ffffff] backdrop-blur-md transition hover:bg-[#15241d]'
     : 'inline-flex min-h-10 items-center gap-2 rounded-full border border-[#ced8d0] bg-white px-4 text-xs font-semibold text-[#183d32] transition hover:bg-[#edf2ed]'
 
   return (
@@ -80,7 +86,7 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
       <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
         <SiteBrand inverse={isHero} />
 
-        <nav className={`hidden items-center rounded-full p-1 md:flex ${isHero ? 'border border-white/15 bg-black/35 backdrop-blur-xl' : 'border border-[#dce2dc] bg-white'}`} aria-label="Primary navigation">
+        <nav className={`hidden items-center rounded-full p-1.5 md:flex ${isHero ? 'border border-white/35 bg-[#07100c]/90 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-2xl' : 'border border-[#d3ddd5] bg-white shadow-[0_6px_20px_rgba(22,52,39,0.08)]'}`} aria-label="Primary navigation">
           {primaryItems.map((item) => <NavLink key={item.to} className={primaryLinkClass} to={item.to} end={item.to === '/'}>{item.label}</NavLink>)}
         </nav>
 
