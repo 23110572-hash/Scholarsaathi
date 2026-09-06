@@ -3117,7 +3117,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   grid-template-columns: 2.75rem minmax(0, 1fr) 2.5rem;
   gap: .65rem;
   color: #fff;
-  background: linear-gradient(135deg, #153d30 0%, #1b5944 72%, #2b7057 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 72%, #0284c7 100%);
   border: 0;
 }
 
@@ -3174,7 +3174,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 }
 .ai-welcome {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: .65rem;
   padding: .8rem;
   margin-bottom: .9rem;
@@ -3251,9 +3251,9 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 .ai-composer .ai-send-button:hover:not(:disabled) { background: #123f30; }
 .ai-composer button:disabled { cursor: not-allowed; opacity: .45; }
 .ai-privacy-note { padding: 0 .75rem .55rem; margin: 0; color: #839087; background: #fff; font-size: .56rem; text-align: center; }
-.ai-assistant-launcher { width: auto; height: 3.35rem; min-width: 3.35rem; padding: 0 .95rem; gap: .48rem; border-radius: 999px; background: linear-gradient(135deg, #194c3a, #1f6a4e); box-shadow: 0 14px 35px rgba(20, 78, 56, .28); font-size: .72rem; font-weight: 750; }
+.ai-assistant-launcher { width: auto; height: 3.35rem; min-width: 3.35rem; padding: 0 .95rem; gap: .48rem; border-radius: 999px; background: linear-gradient(135deg, #0284c7, #0ea5e9); box-shadow: 0 14px 35px rgba(2, 132, 199, .28); font-size: .72rem; font-weight: 750; }
 .ai-assistant-launcher span { white-space: nowrap; }
-.ai-assistant-launcher:hover { background: linear-gradient(135deg, #123d2e, #18573f); box-shadow: 0 17px 40px rgba(20,78,56,.34); }
+.ai-assistant-launcher:hover { background: linear-gradient(135deg, #0369a1, #0284c7); box-shadow: 0 17px 40px rgba(2, 132, 199, .34); }
 
 /* --- Private student document vault --- */
 .modern-profile-shell { display: grid; gap: 1.2rem; }
@@ -3324,7 +3324,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   height: 3rem;
 }
 .ai-welcome {
-  grid-template-columns: 2.35rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: .75rem;
   padding: .9rem;

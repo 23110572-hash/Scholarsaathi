@@ -376,15 +376,28 @@ SCHOLARSHIP_SPECS = [
 
 
 def seed_database() -> None:
+    # Imported locally to keep the standalone reconciliation module independent from
+    # this canonical synthetic fixture module.
+    from app.catalog_seed import reconcile_reference_catalog
+
     hasher = PasswordHasher()
     session = SessionLocal()
 
     try:
+        catalog_result = reconcile_reference_catalog(
+            session,
+            hasher.hash(DEMO_PASSWORD),
+        )
         already_seeded = session.scalar(
             select(Account.id).where(Account.login_identifier == DEMO_STUDENT_LOGIN)
         )
         if already_seeded:
-            print("ScholarSaathi synthetic seed data already exists; no changes made.")
+            session.commit()
+            print(
+                "ScholarSaathi base seed already exists; reference catalog reconciled "
+                f"({catalog_result['removed_broken_scholarships']} broken removed, "
+                f"{catalog_result['reference_scholarships']} references ready)."
+            )
             return
 
         student_id = stable_id("account:student")
@@ -392,10 +405,7 @@ def seed_database() -> None:
         password_hashes = {
             "student": hasher.hash(DEMO_PASSWORD),
             "reviewer_student": hasher.hash(REVIEWER_STUDENT_PASSWORD),
-            **{
-                spec["key"]: hasher.hash(DEMO_PASSWORD)
-                for spec in ORGANIZATION_SPECS
-            },
+            **{spec["key"]: hasher.hash(DEMO_PASSWORD) for spec in ORGANIZATION_SPECS},
         }
 
         accounts = [
@@ -556,9 +566,7 @@ def seed_database() -> None:
             domain = organization_by_key[spec["organization"]].domain
             organization_id = organization_ids[spec["organization"]]
             source_id = stable_id(f"source-document:{slug}:guidelines")
-            source_text = "\n\n".join(
-                f"{section}\n{text}" for section, text in spec["chunks"]
-            )
+            source_text = "\n\n".join(f"{section}\n{text}" for section, text in spec["chunks"])
             checksum = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
             source_url = f"https://example.org/synthetic-scholarships/{slug}/guidelines-2026-27"
 
@@ -681,7 +689,13 @@ def seed_database() -> None:
                     "Select a range; do not enter bank, Aadhaar, or tax identifiers.",
                     ApplicationFieldType.SELECT,
                     True,
-                    ["UP_TO_250000", "250001_TO_400000", "400001_TO_600000", "600001_TO_800000", "ABOVE_800000"],
+                    [
+                        "UP_TO_250000",
+                        "250001_TO_400000",
+                        "400001_TO_600000",
+                        "600001_TO_800000",
+                        "ABOVE_800000",
+                    ],
                 ),
                 (
                     "academic_score",
@@ -751,17 +765,13 @@ def seed_database() -> None:
                     student_account_id=student_id,
                     student_domain=OwnershipDomain.STUDENT,
                     scholarship_domain=OwnershipDomain.STATE_GOVERNMENT,
-                    scholarship_id=scholarship_ids[
-                        "odisha-technical-pathways-scholarship-2026"
-                    ],
+                    scholarship_id=scholarship_ids["odisha-technical-pathways-scholarship-2026"],
                 ),
                 SavedScholarship(
                     student_account_id=student_id,
                     student_domain=OwnershipDomain.STUDENT,
                     scholarship_domain=OwnershipDomain.NGO_PRIVATE,
-                    scholarship_id=scholarship_ids[
-                        "aarohan-women-engineers-scholarship-2026"
-                    ],
+                    scholarship_id=scholarship_ids["aarohan-women-engineers-scholarship-2026"],
                 ),
             ]
         )
