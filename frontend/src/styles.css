@@ -12,9 +12,9 @@
   --muted: #65726b;
   --cream: #f7f4ec;
   --paper: #fffdf8;
-  --green: #1f604a;
-  --green-dark: #123b2f;
-  --green-soft: #dfece5;
+  --green: #00a8ff;
+  --green-dark: #0077b3;
+  --green-soft: #e5f6ff;
   --lime: #d9ee9f;
   --orange: #ed7444;
   --blue: #4d75d2;
@@ -3394,9 +3394,9 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   font-size: .75rem;
 }
 .ai-assistant-launcher {
-  width: 4rem;
-  height: 4rem;
-  min-width: 4rem;
+  width: 6rem;
+  height: 6rem;
+  min-width: 6rem;
   padding: 0;
   overflow: hidden;
   border: 3px solid #fff;
@@ -3427,8 +3427,8 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
     width: 100% !important;
   }
   .ai-assistant-launcher {
-    width: 4rem;
-    height: 4rem;
-    min-width: 4rem;
+    width: 5.5rem;
+    height: 5.5rem;
+    min-width: 5.5rem;
   }
 }

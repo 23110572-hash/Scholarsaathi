@@ -385,7 +385,7 @@ export function EligibilityAssistant() {
     () =>
       scholarshipId
         ? ['Am I eligible?', 'Which documents do I need?', 'Apply for this scholarship']
-        : ['Find scholarships for me', 'I study BTech in Odisha', 'What documents do I need?'],
+        : [],
     [scholarshipId],
   )
 
@@ -650,7 +650,6 @@ export function EligibilityAssistant() {
 
           <div className="ai-transcript" ref={transcriptRef} role="log" aria-live="polite">
             <div className="ai-welcome">
-              <span><Sparkles size={19} /></span>
               <strong>Hello, how can I help you?</strong>
             </div>
 
