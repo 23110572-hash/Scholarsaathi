@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections import defaultdict
 from typing import Any
@@ -28,6 +29,93 @@ from app.schemas import (
 )
 
 settings = get_settings()
+
+_SENSITIVE_MESSAGE_PATTERN = re.compile(
+    r"\b(?:aadhaar|aadhar|pan(?:\s+(?:card|number|no))?|bank\s+(?:account|details)|"
+    r"account\s+number|ifsc|upi(?:\s+id)?|otp|password|passcode|cvv|"
+    r"credit\s+card|debit\s+card)\b",
+    re.IGNORECASE,
+)
+_SMALL_TALK_PATTERN = re.compile(
+    r"^(?:hi+|hello+|hey+|namaste|thanks?|thank\s+you|thx|ty|ok(?:ay)?|bye|"
+    r"good\s+(?:morning|afternoon|evening|night))"
+    r"(?:\s+(?:bro|bhai|sir|maam|yaar))?[\s!,.?]*$",
+    re.IGNORECASE,
+)
+_GENERAL_QUESTION_PATTERN = re.compile(
+    r"\b(?:docs?|documents?|upload|deadline|last\s+date|income\s+certificate|"
+    r"application\s+process|steps?\s+to\s+apply|how\s+(?:do|can|should)\s+i\s+apply|"
+    r"where\s+(?:do|can)\s+i\s+(?:submit|upload)|what\s+(?:details|documents?)\s+do\s+i\s+need|"
+    r"who\s+are\s+you|what\s+can\s+you\s+do)\b",
+    re.IGNORECASE,
+)
+_SEARCH_REQUEST_PATTERN = re.compile(
+    r"\b(?:find|show|suggest|recommend|match|best|eligible|eligibility)\b.*\bscholarships?\b|"
+    r"\bscholarships?\b.*\b(?:find|show|suggest|recommend|match|best|eligible)\b",
+    re.IGNORECASE,
+)
+_EXTRACTED_SCALAR_FIELDS = (
+    "state",
+    "education_level",
+    "course",
+    "course_year",
+    "marks_percentage",
+    "family_income_range",
+)
+
+
+def _contains_sensitive_information(message: str | None) -> bool:
+    return bool(message and _SENSITIVE_MESSAGE_PATTERN.search(message))
+
+
+def _is_conversation_only_message(message: str | None) -> bool:
+    if not message:
+        return False
+    normalized = " ".join(message.split())
+    if _SEARCH_REQUEST_PATTERN.search(normalized):
+        return False
+    return bool(
+        _SMALL_TALK_PATTERN.fullmatch(normalized)
+        or _GENERAL_QUESTION_PATTERN.search(normalized)
+    )
+
+
+def _only_new_extracted_facts(
+    profile: DiscoveryProfile,
+    extracted: ChatExtractedFacts,
+) -> ChatExtractedFacts:
+    values: dict[str, Any] = {}
+    for field in _EXTRACTED_SCALAR_FIELDS:
+        value = getattr(extracted, field)
+        if value is not None and value != getattr(profile, field):
+            values[field] = value
+    known_categories = set(profile.categories)
+    values["categories"] = [
+        category for category in extracted.categories if category not in known_categories
+    ]
+    return ChatExtractedFacts(**values)
+
+
+def _privacy_discovery_response() -> DiscoveryResponse:
+    return DiscoveryResponse(
+        ai_available=bool(settings.openrouter_api_key),
+        model=settings.ai_model if settings.openrouter_api_key else None,
+        notice="Sensitive identifiers are not sent to the AI service or stored in this chat.",
+        candidates=[],
+        introduction=(
+            "Please do not share Aadhaar, PAN, bank, card, password, or OTP details in chat. "
+            "Use the secure document-upload area when an application asks for evidence; "
+            "you can safely tell me only your State, course, study year, marks, income range, "
+            "and scholarship category."
+        ),
+        assessments=[],
+        mode="CONVERSATION",
+        intent="GENERAL_QUESTION",
+        requested_details=[],
+        suggested_replies=["Help me find scholarships", "What details do you need?"],
+        extracted=ChatExtractedFacts(),
+    )
+
 
 # OpenRouter / AI providers count prompt tokens plus max_tokens against the tokens-per-minute ceiling and
 # rejects the request with HTTP 413 when the sum exceeds it. These constants keep the
@@ -174,7 +262,7 @@ def _conversation_response(
         intent=parsed.intent,
         requested_details=parsed.requested_details,
         suggested_replies=parsed.suggested_replies,
-        extracted=parsed.extracted,
+        extracted=_only_new_extracted_facts(profile, parsed.extracted),
     )
 
 
@@ -202,9 +290,14 @@ def _candidate_query(profile: DiscoveryProfile):
 
 
 def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryResponse:
-    # A greeting or a general question carries no eligibility facts. Answer it as chat
-    # rather than assessing the whole catalog against nothing.
-    if not _has_eligibility_facts(profile):
+    # Sensitive identifiers must never be forwarded to the external model. Students use
+    # the private document workflow for evidence instead of placing identifiers in chat.
+    if _contains_sensitive_information(profile.message):
+        return _privacy_discovery_response()
+
+    # Greetings, thanks, and general document/application questions remain conversational
+    # even after profile facts are known. Only a search-style turn starts reassessment.
+    if not _has_eligibility_facts(profile) or _is_conversation_only_message(profile.message):
         return _conversation_response(db, profile)
 
     rows = db.execute(_candidate_query(profile)).all()
@@ -357,7 +450,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
 
     # Keep the conversation moving: name the details that would sharpen the next pass,
     # counting anything the model just read out of this turn's message as already supplied.
-    extracted = parsed.extracted
+    extracted = _only_new_extracted_facts(profile, parsed.extracted)
     missing = [
         name
         for name in _ELIGIBILITY_FIELDS
@@ -386,6 +479,22 @@ def answer_scholarship_question(
     scholarship_id: uuid.UUID,
     request: ScholarshipQuestionRequest,
 ) -> ScholarshipQuestionResponse:
+    if _contains_sensitive_information(request.question):
+        return ScholarshipQuestionResponse(
+            ai_available=bool(settings.openrouter_api_key),
+            model=settings.ai_model if settings.openrouter_api_key else None,
+            label="PROVIDER_CONFIRMATION_REQUIRED",
+            answer=(
+                "Please do not share Aadhaar, PAN, bank, card, password, or OTP details "
+                "in chat. Upload requested evidence only through the secure document area."
+            ),
+            citations=[],
+            suggested_questions=[
+                "Which documents are required?",
+                "What is the application deadline?",
+            ],
+        )
+
     row = db.execute(
         published_scholarship_query().where(Scholarship.id == scholarship_id)
     ).one_or_none()

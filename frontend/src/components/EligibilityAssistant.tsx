@@ -178,9 +178,21 @@ function factsFromLocation(search: string): KnownFacts {
 function isExplicitApplyCommand(message: string): boolean {
   const normalised = message.trim().toLowerCase()
   if (!/\b(apply|submit)\b/.test(normalised)) return false
-  return !/\b(how (?:do|can|should) i apply|how to apply|where (?:do|can) i apply|application process|steps to apply)\b/.test(
-    normalised,
+
+  // Questions about documents or the application process must remain chat questions.
+  if (/\b(docs?|documents?|upload|requirements?|process|steps?)\b/.test(normalised)) return false
+  if (/\b(?:how|where|what|when|which|why)\b/.test(normalised)) return false
+  if (/\b(?:can|could|should|may) i apply\b/.test(normalised)) return false
+
+  return (
+    /^(?:please\s+|pls\s+|plz\s+)?(?:apply|submit)(?:\s|$)/.test(normalised) ||
+    /\b(?:apply|submit)\b.*\b(?:for me|on my behalf|my application|my form|krdo|kardo)\b/.test(normalised) ||
+    /\b(?:can|could|will|would) (?:you|u) (?:please )?(?:apply|submit)\b/.test(normalised)
   )
+}
+
+function containsSensitiveInformation(message: string): boolean {
+  return /\b(?:aadhaar|aadhar|pan(?:\s+(?:card|number|no))?|bank\s+(?:account|details)|account\s+number|ifsc|upi(?:\s+id)?|otp|password|passcode|cvv|credit\s+card|debit\s+card)\b/i.test(message)
 }
 
 function DiscoveryReply({
@@ -216,13 +228,12 @@ function DiscoveryReply({
       (left, right) =>
         assessmentRank[left.assessment.assessment] - assessmentRank[right.assessment.assessment],
     )
+  const fallbackCandidates = results.length === 0 ? data.candidates.slice(0, 4) : []
 
   return (
     <div className="ai-reply-content">
       {data.introduction && <p>{data.introduction}</p>}
-      {results.length === 0 ? (
-        <p>I need a little more information before I can suggest a reliable match.</p>
-      ) : (
+      {results.length > 0 ? (
         <div className="ai-match-list">
           {results.map(({ scholarship, assessment }) => (
             <article className="ai-match-card" key={scholarship.id}>
@@ -253,6 +264,27 @@ function DiscoveryReply({
             </article>
           ))}
         </div>
+      ) : fallbackCandidates.length > 0 ? (
+        <div className="ai-match-list">
+          {fallbackCandidates.map((scholarship) => (
+            <article className="ai-match-card" key={scholarship.id}>
+              <div className="ai-match-card-topline">
+                <span className="ai-assessment">Catalog match</span>
+                {scholarship.application_deadline_at && (
+                  <small>{new Date(scholarship.application_deadline_at).toLocaleDateString('en-IN')}</small>
+                )}
+              </div>
+              <h3>{scholarship.title}</h3>
+              <small>{scholarship.organization.display_name}</small>
+              <p>{scholarship.summary}</p>
+              <div className="ai-result-actions">
+                <Link to={`/scholarships/${scholarship.id}`}>Review details</Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p>I need a little more information before I can suggest a reliable match.</p>
       )}
       {data.requested_details.length > 0 && (
         <p className="ai-detail-request">
@@ -536,12 +568,33 @@ export function EligibilityAssistant() {
     async (rawMessage: string) => {
       const message = rawMessage.trim()
       if (!message || loadingRef.current) return
+      if (scholarshipId && message.length < 3) {
+        setError('Please enter at least three characters for a scholarship question.')
+        return
+      }
+      if (containsSensitiveInformation(message)) {
+        const id = nextId.current++
+        setTurns((current) => [
+          ...current,
+          {
+            id,
+            question: 'Sensitive information removed for your safety.',
+            reply: {
+              kind: 'notice',
+              message: 'Please do not share Aadhaar, PAN, bank, card, password, or OTP details in chat. Upload requested evidence only through the secure document area.',
+            },
+          },
+        ])
+        setDraft('')
+        return
+      }
       if (isExplicitApplyCommand(message)) {
         const targets = scholarshipId ? [scholarshipId] : recentScholarshipIds
         await performApplication(targets, message)
         return
       }
 
+      if (!scholarshipId) setRecentScholarshipIds([])
       loadingRef.current = true
       const id = nextId.current++
       setTurns((current) => [...current, { id, question: message }])
@@ -575,12 +628,16 @@ export function EligibilityAssistant() {
             body: JSON.stringify(payload),
           })
           setFacts((current) => mergeFacts(current, data.extracted))
-          const assessed = new Set(data.assessments.map((item) => item.scholarship_version_id))
+          const eligibleAssessments = new Set(
+            data.assessments
+              .filter((item) => item.assessment !== 'LIKELY_NOT_ELIGIBLE')
+              .map((item) => item.scholarship_version_id),
+          )
           const targetIds = data.candidates
-            .filter((candidate) => assessed.has(candidate.version_id))
+            .filter((candidate) => eligibleAssessments.has(candidate.version_id))
             .slice(0, 5)
             .map((candidate) => candidate.id)
-          if (targetIds.length > 0) setRecentScholarshipIds(targetIds)
+          setRecentScholarshipIds(targetIds)
           reply = { kind: 'discovery', data }
         }
         setTurns((current) => current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)))
@@ -613,7 +670,7 @@ export function EligibilityAssistant() {
     launcherRef.current?.focus()
   }
 
-  const canSend = !loading && !speech.listening && draft.trim().length >= 2
+  const canSend = !loading && !speech.listening && draft.trim().length >= (scholarshipId ? 3 : 2)
   const returnPath = `${location.pathname}${location.search}${location.hash}`
 
   return (
@@ -644,7 +701,7 @@ export function EligibilityAssistant() {
               <div className="ai-fact-scroll">
                 {factPills.map((pill) => <span className="ai-fact-pill" key={pill}>{pill}</span>)}
               </div>
-              <button className="ai-fact-clear" type="button" onClick={() => setFacts({})}>Clear</button>
+              <button className="ai-fact-clear" type="button" onClick={() => { setFacts({}); setRecentScholarshipIds([]) }}>Clear</button>
             </div>
           )}
 
