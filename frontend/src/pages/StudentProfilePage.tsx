@@ -374,7 +374,7 @@ export function StudentProfilePage() {
               <label>Specialization<input value={form.specialization} maxLength={120} placeholder="e.g. Computer Science" onChange={(event) => update('specialization', event.target.value)} /></label>
               <label>Current year<input type="number" min={1} max={12} value={form.course_year} placeholder="e.g. 2" onChange={(event) => update('course_year', event.target.value)} /></label>
               <label>Current semester<input type="number" min={1} max={20} value={form.current_semester} placeholder="e.g. 4" onChange={(event) => update('current_semester', event.target.value)} /></label>
-              <label>Current percentage<input type="number" min={0} max={100} step="0.01" value={form.marks_percentage} placeholder="e.g. 78.5" onChange={(event) => update('marks_percentage', event.target.value)} /></label>
+              <label>Latest completed result (%)<input type="number" min={0} max={100} step="0.01" value={form.marks_percentage} placeholder="e.g. 78.5" onChange={(event) => update('marks_percentage', event.target.value)} /><small className="modern-profile-field-hint">Use the official percentage or equivalent printed on your latest completed marksheet.</small></label>
             </div>
 
             <h2 className="modern-profile-legend">Academic history</h2>
@@ -397,11 +397,10 @@ export function StudentProfilePage() {
 
           <section className="modern-glass-card student-documents-card" id="documents" aria-labelledby="documents-title">
             <div className="student-documents-heading">
-              <span aria-hidden="true"><ShieldCheck size={22} /></span>
               <div>
                 <p className="modern-section-kicker">Private document vault</p>
                 <h2 id="documents-title">Application documents</h2>
-                <p>Encrypted private storage. ScholarSaathi attaches only the documents required for a selected scholarship.</p>
+                <p>ScholarSaathi attaches only the documents required for a selected scholarship.</p>
               </div>
             </div>
 
@@ -437,7 +436,6 @@ export function StudentProfilePage() {
 
           {notice && <div className="success-banner profile-global-banner" role="status">{notice}</div>}
           {error && <div className="error-banner profile-global-banner" role="alert">{error}</div>}
-          <p className="modern-sensitive-warning"><ShieldCheck size={16} /> Never upload or enter Aadhaar, PAN, bank details, passwords or OTPs.</p>
         </section>
       </div>
     </main>

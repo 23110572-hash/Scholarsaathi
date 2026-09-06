@@ -45,6 +45,7 @@ interface ConversationTurn {
 
 type KnownFacts = Partial<{
   state: string
+  gender: string
   education_level: string
   course: string
   course_year: number
@@ -75,6 +76,7 @@ const questionLabels: Record<ScholarshipQuestionResponse['label'], string> = {
 
 const detailLabels: Record<ChatDetailKey, string> = {
   state: 'State or UT',
+  gender: 'gender',
   education_level: 'education level',
   course: 'course',
   course_year: 'study year',
@@ -140,6 +142,7 @@ function mergeFacts(current: KnownFacts, extracted: ChatExtractedFacts | null): 
   if (!extracted) return current
   const next: KnownFacts = { ...current }
   if (extracted.state) next.state = extracted.state
+  if (extracted.gender) next.gender = extracted.gender
   if (extracted.education_level) next.education_level = extracted.education_level
   if (extracted.course) next.course = extracted.course
   if (extracted.course_year !== null) next.course_year = extracted.course_year
@@ -154,6 +157,7 @@ function mergeFacts(current: KnownFacts, extracted: ChatExtractedFacts | null): 
 function factsFromProfile(profile: StudentProfile): KnownFacts {
   return {
     ...(profile.state_code ? { state: profile.state_code } : {}),
+    ...(profile.gender ? { gender: profile.gender } : {}),
     ...(profile.education_level ? { education_level: profile.education_level } : {}),
     ...(profile.course ? { course: profile.course } : {}),
     ...(profile.course_year !== null ? { course_year: profile.course_year } : {}),
@@ -424,6 +428,7 @@ export function EligibilityAssistant() {
   const factPills = useMemo(() => {
     const pills: string[] = []
     if (facts.state) pills.push(stateNames[facts.state] ?? facts.state)
+    if (facts.gender && facts.gender !== 'PREFER_NOT_TO_SAY') pills.push(titleCase(facts.gender))
     if (facts.education_level) {
       pills.push(educationLabels[facts.education_level] ?? titleCase(facts.education_level))
     }

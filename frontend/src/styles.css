@@ -2722,6 +2722,13 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   color: #64748b;
 }
 
+.modern-profile-field-hint {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
 .modern-chip-grid {
   display: flex;
   flex-wrap: wrap;
@@ -3258,8 +3265,7 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 /* --- Private student document vault --- */
 .modern-profile-shell { display: grid; gap: 1.25rem; }
 .student-documents-card { display: grid; gap: 1.4rem; padding: clamp(1.25rem, 3vw, 2rem); }
-.student-documents-heading { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 1rem; align-items: start; }
-.student-documents-heading > span { display: grid; width: 3.2rem; height: 3.2rem; color: #fff; background: linear-gradient(135deg, #ff9933, #e67e22); border-radius: 1rem; place-items: center; box-shadow: 0 8px 18px -8px rgba(230, 126, 34, .65); }
+.student-documents-heading { display: block; }
 .student-documents-heading h2 { margin: .1rem 0 .35rem; color: #0f172a; font-size: 1.35rem; }
 .student-documents-heading p:last-child { max-width: 680px; margin: 0; color: #64748b; font-size: .95rem; line-height: 1.6; }
 .document-upload-form { display: grid; gap: 1.15rem; padding: 1.25rem; background: rgba(248, 250, 252, .9); border: 1px solid #e2e8f0; border-radius: 1rem; }

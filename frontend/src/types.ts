@@ -104,6 +104,7 @@ export interface ScholarshipList {
 export interface DiscoveryProfile {
   message?: string
   state?: string
+  gender?: string
   education_level?: string
   course?: string
   course_year?: number
@@ -172,6 +173,7 @@ export type ChatIntent =
 
 export type ChatDetailKey =
   | 'state'
+  | 'gender'
   | 'education_level'
   | 'course'
   | 'course_year'
@@ -182,6 +184,7 @@ export type ChatDetailKey =
 /** Eligibility facts the assistant picked out of the student's own words this turn. */
 export interface ChatExtractedFacts {
   state: string | null
+  gender: string | null
   education_level: string | null
   course: string | null
   course_year: number | null

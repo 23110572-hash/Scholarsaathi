@@ -23,9 +23,15 @@ from app.schemas import (
     ChatExtractedFacts,
     DiscoveryProfile,
     DiscoveryResponse,
+    ScholarshipAssessment,
+    ScholarshipChatParsed,
     ScholarshipQuestionRequest,
     ScholarshipQuestionResponse,
     SourceExcerpt,
+)
+from app.services.eligibility_rules import (
+    assessment_introduction,
+    evaluate_structured_eligibility,
 )
 
 settings = get_settings()
@@ -50,12 +56,24 @@ _GENERAL_QUESTION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _SEARCH_REQUEST_PATTERN = re.compile(
-    r"\b(?:find|show|suggest|recommend|match|best|eligible|eligibility)\b.*\bscholarships?\b|"
-    r"\bscholarships?\b.*\b(?:find|show|suggest|recommend|match|best|eligible)\b",
+    r"\b(?:find|suggest|recommend|match|search(?:\s+for)?)\b.{0,80}"
+    r"\b(?:scholarships?|schemes?|options?|matches?|eligible|ones?)\b|"
+    r"\b(?:scholarships?|schemes?)\b.{0,80}\b(?:find|show|suggest|recommend|match|eligible)\b|"
+    r"\b(?:eligible|eligibility)\b.{0,60}\b(?:scholarships?|schemes?|options?)\b",
+    re.IGNORECASE,
+)
+_LEADING_FIND_PATTERN = re.compile(
+    r"^(?:please\s+|pls\s+|plz\s+)?find\b(?!\s+out\b)",
+    re.IGNORECASE,
+)
+_SHORT_SEARCH_PATTERN = re.compile(
+    r"^(?:please\s+|pls\s+|plz\s+)?(?:find|search|show|suggest|recommend|match)"
+    r"(?:\s+(?:all|some|more|again|ones?|options?|matches?))?[\s!,.?]*$",
     re.IGNORECASE,
 )
 _EXTRACTED_SCALAR_FIELDS = (
     "state",
+    "gender",
     "education_level",
     "course",
     "course_year",
@@ -68,15 +86,25 @@ def _contains_sensitive_information(message: str | None) -> bool:
     return bool(message and _SENSITIVE_MESSAGE_PATTERN.search(message))
 
 
+def _is_search_request(message: str | None) -> bool:
+    if not message:
+        return False
+    normalized = " ".join(message.split())
+    return bool(
+        _LEADING_FIND_PATTERN.search(normalized)
+        or _SHORT_SEARCH_PATTERN.fullmatch(normalized)
+        or _SEARCH_REQUEST_PATTERN.search(normalized)
+    )
+
+
 def _is_conversation_only_message(message: str | None) -> bool:
     if not message:
         return False
     normalized = " ".join(message.split())
-    if _SEARCH_REQUEST_PATTERN.search(normalized):
+    if _is_search_request(normalized):
         return False
     return bool(
-        _SMALL_TALK_PATTERN.fullmatch(normalized)
-        or _GENERAL_QUESTION_PATTERN.search(normalized)
+        _SMALL_TALK_PATTERN.fullmatch(normalized) or _GENERAL_QUESTION_PATTERN.search(normalized)
     )
 
 
@@ -94,6 +122,19 @@ def _only_new_extracted_facts(
         category for category in extracted.categories if category not in known_categories
     ]
     return ChatExtractedFacts(**values)
+
+
+def _profile_with_extracted_facts(
+    profile: DiscoveryProfile,
+    extracted: ChatExtractedFacts,
+) -> DiscoveryProfile:
+    values = profile.model_dump()
+    for field in _EXTRACTED_SCALAR_FIELDS:
+        value = getattr(extracted, field)
+        if value is not None:
+            values[field] = value
+    values["categories"] = list(dict.fromkeys([*profile.categories, *extracted.categories]))
+    return DiscoveryProfile(**values)
 
 
 def _privacy_discovery_response() -> DiscoveryResponse:
@@ -169,6 +210,7 @@ def _plan_discovery_request(
 # candidate would only produce "cannot determine" noise.
 _ELIGIBILITY_FIELDS = (
     "state",
+    "gender",
     "education_level",
     "course",
     "course_year",
@@ -207,43 +249,50 @@ def _scripted_chat_reply() -> DiscoveryResponse:
     )
 
 
-def _conversation_response(
+def _run_chat_preflight(
     db: Session,
     profile: DiscoveryProfile,
-) -> DiscoveryResponse:
-    """Handle a turn that carries no eligibility facts as pure conversation.
-
-    No candidates and no assessments are returned, so a greeting or a general question
-    never renders a wall of indeterminate scholarship cards.
-    """
+) -> ScholarshipChatParsed | None:
     if not settings.openrouter_api_key:
-        return _scripted_chat_reply()
+        return None
 
-    # Titles only. The chat agent is explicitly barred from attaching conditions to them,
-    # so it needs no evidence and stays cheap.
     titles = db.execute(
         published_scholarship_query().order_by(ScholarshipVersion.application_deadline_at).limit(12)
     ).all()
     catalog_titles = [
         f"{version.title} — {organization.display_name}" for _, version, organization in titles
     ]
+    return run_chat_agent(
+        {
+            "message": profile.message,
+            "preferred_language": profile.preferred_language,
+            "known_student_facts": profile.model_dump(
+                mode="json",
+                exclude_none=True,
+                exclude={"message", "preferred_language"},
+            ),
+            "catalog_titles": catalog_titles,
+            "catalog_count": len(catalog_titles),
+        }
+    )
 
-    try:
-        parsed = run_chat_agent(
-            {
-                "message": profile.message,
-                "preferred_language": profile.preferred_language,
-                "known_student_facts": profile.model_dump(
-                    mode="json",
-                    exclude_none=True,
-                    exclude={"message", "preferred_language"},
-                ),
-                "catalog_titles": catalog_titles,
-                "catalog_count": len(catalog_titles),
-            }
-        )
-    except AICapacityError:
+
+def _conversation_response(
+    db: Session,
+    profile: DiscoveryProfile,
+    parsed: ScholarshipChatParsed | None = None,
+    *,
+    chat_attempted: bool = False,
+) -> DiscoveryResponse:
+    """Return a conversational turn without scholarship assessments."""
+    if not settings.openrouter_api_key:
         return _scripted_chat_reply()
+
+    if not chat_attempted:
+        try:
+            parsed = _run_chat_preflight(db, profile)
+        except AICapacityError:
+            return _scripted_chat_reply()
 
     if parsed is None:
         return _scripted_chat_reply()
@@ -278,14 +327,15 @@ def _candidate_query(profile: DiscoveryProfile):
     if profile.education_level:
         query = query.where(ScholarshipVersion.education_levels.any(profile.education_level))
     if profile.course:
-        query = query.where(
-            or_(
-                ScholarshipVersion.course_families.any(profile.course),
-                ScholarshipVersion.course_families.any("ALL_UNDERGRADUATE"),
-                ScholarshipVersion.course_families.any("ALL_RECOGNIZED_COURSES"),
-                ScholarshipVersion.course_families.any("STEM"),
-            )
-        )
+        course_conditions = [
+            ScholarshipVersion.course_families.any(profile.course),
+            ScholarshipVersion.course_families.any("ALL_RECOGNIZED_COURSES"),
+        ]
+        if profile.education_level == "UNDERGRADUATE":
+            course_conditions.append(ScholarshipVersion.course_families.any("ALL_UNDERGRADUATE"))
+        if profile.course in {"STEM", "BTECH", "BE", "BARCH", "BSC"}:
+            course_conditions.append(ScholarshipVersion.course_families.any("STEM"))
+        query = query.where(or_(*course_conditions))
     return query.order_by(ScholarshipVersion.application_deadline_at).limit(12)
 
 
@@ -295,12 +345,50 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     if _contains_sensitive_information(profile.message):
         return _privacy_discovery_response()
 
-    # Greetings, thanks, and general document/application questions remain conversational
-    # even after profile facts are known. Only a search-style turn starts reassessment.
-    if not _has_eligibility_facts(profile) or _is_conversation_only_message(profile.message):
-        return _conversation_response(db, profile)
+    chat_parsed: ScholarshipChatParsed | None = None
+    chat_attempted = False
+    effective_profile = profile
+    if profile.message and settings.openrouter_api_key:
+        chat_attempted = True
+        try:
+            chat_parsed = _run_chat_preflight(db, profile)
+        except AICapacityError:
+            chat_parsed = None
+        if chat_parsed is not None:
+            effective_profile = _profile_with_extracted_facts(profile, chat_parsed.extracted)
 
-    rows = db.execute(_candidate_query(profile)).all()
+    search_requested = _is_search_request(profile.message) or (
+        chat_parsed is not None and chat_parsed.intent == "SCHOLARSHIP_SEARCH"
+    )
+    conversation_intents = {
+        "GREETING",
+        "SMALL_TALK",
+        "GENERAL_QUESTION",
+        "SHARING_DETAILS",
+        "OUT_OF_SCOPE",
+    }
+    if (
+        _is_conversation_only_message(profile.message)
+        or not _has_eligibility_facts(effective_profile)
+        or (
+            chat_parsed is not None
+            and not search_requested
+            and chat_parsed.intent in conversation_intents
+        )
+    ):
+        return _conversation_response(
+            db,
+            profile,
+            chat_parsed,
+            chat_attempted=chat_attempted,
+        )
+
+    turn_extracted = (
+        _only_new_extracted_facts(profile, chat_parsed.extracted)
+        if chat_parsed is not None
+        else ChatExtractedFacts()
+    )
+    rows = db.execute(_candidate_query(effective_profile)).all()
     cards = [scholarship_card(*row) for row in rows]
 
     if not rows:
@@ -315,6 +403,9 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
                 "programmes."
             ),
             assessments=[],
+            mode="ASSESSMENT",
+            intent="SCHOLARSHIP_SEARCH",
+            extracted=turn_extracted,
         )
 
     version_ids = [version.id for _, version, _ in rows]
@@ -329,19 +420,6 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
     chunks_by_version: dict[str, list[KnowledgeChunk]] = defaultdict(list)
     for chunk in chunks:
         chunks_by_version[str(chunk.scholarship_version_id)].append(chunk)
-
-    if not settings.openrouter_api_key:
-        return DiscoveryResponse(
-            ai_available=False,
-            model=None,
-            notice=(
-                "The published scholarship catalog is available, but AI assessment requires "
-                "OPENROUTER_API_KEY in the backend environment."
-            ),
-            candidates=cards,
-            introduction=None,
-            assessments=[],
-        )
 
     candidate_payload: list[dict[str, Any]] = []
     citations_by_version: dict[str, set[str]] = {}
@@ -390,87 +468,81 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             }
         )
 
-    student_facts = profile.model_dump(mode="json", exclude_none=True)
-    assessed, max_output_tokens = _plan_discovery_request(student_facts, candidate_payload)
-    if not assessed:
-        return DiscoveryResponse(
-            ai_available=False,
-            model=settings.ai_model,
-            notice=(
-                "The published scholarship catalog is available, but the provider evidence "
-                "is too large for the current AI token budget. Narrow the search with a "
-                "state, course, or education level."
-            ),
-            candidates=cards,
-            introduction=None,
-            assessments=[],
-        )
+    student_facts = effective_profile.model_dump(
+        mode="json",
+        exclude_none=True,
+        exclude={"message"},
+    )
+    structured_by_version: dict[str, ScholarshipAssessment] = {}
+    unstructured_candidates: list[dict[str, Any]] = []
+    for candidate in candidate_payload:
+        assessment = evaluate_structured_eligibility(effective_profile, candidate)
+        if assessment is None:
+            unstructured_candidates.append(candidate)
+        else:
+            structured_by_version[assessment.scholarship_version_id] = assessment
 
-    allowed_citations = {
-        candidate["scholarship_version_id"]: citations_by_version[
-            candidate["scholarship_version_id"]
-        ]
-        for candidate in assessed
-    }
+    model_by_version: dict[str, ScholarshipAssessment] = {}
+    if unstructured_candidates and settings.openrouter_api_key:
+        assessed, max_output_tokens = _plan_discovery_request(
+            student_facts,
+            unstructured_candidates,
+        )
+        if assessed:
+            allowed_citations = {
+                candidate["scholarship_version_id"]: citations_by_version[
+                    candidate["scholarship_version_id"]
+                ]
+                for candidate in assessed
+            }
+            try:
+                parsed_assessments = run_discovery_agent(
+                    {"student_facts": student_facts, "candidate_scholarships": assessed},
+                    allowed_citations,
+                    max_output_tokens,
+                )
+            except AICapacityError:
+                parsed_assessments = None
+            if parsed_assessments is not None:
+                model_by_version = {
+                    item.scholarship_version_id: item for item in parsed_assessments.assessments
+                }
 
-    try:
-        parsed = run_discovery_agent(
-            {"student_facts": student_facts, "candidate_scholarships": assessed},
-            allowed_citations,
-            max_output_tokens,
+    assessments = [
+        assessment
+        for candidate in candidate_payload
+        if (
+            assessment := structured_by_version.get(candidate["scholarship_version_id"])
+            or model_by_version.get(candidate["scholarship_version_id"])
         )
-    except AICapacityError:
-        return DiscoveryResponse(
-            ai_available=False,
-            model=settings.ai_model,
-            notice=(
-                "AI assessment is at its usage limit for the moment. The published catalog "
-                "below is complete, and assessments resume within a minute."
-            ),
-            candidates=cards,
-            introduction=None,
-            assessments=[],
-        )
-    if parsed is None:
-        return DiscoveryResponse(
-            ai_available=True,
-            model=settings.ai_model,
-            notice="AI returned no source-confirmed assessment. The catalog candidates are still shown.",
-            candidates=cards,
-            assessments=[],
-        )
-
-    notice = "Assessments use only provider-confirmed information and are not official decisions."
-    if len(assessed) < len(candidate_payload):
-        notice = (
-            f"I looked closely at the {len(assessed)} nearest deadlines out of "
-            f"{len(candidate_payload)} matching scholarships, using only provider-confirmed "
-            "information. These are not official decisions."
-        )
-
-    # Keep the conversation moving: name the details that would sharpen the next pass,
-    # counting anything the model just read out of this turn's message as already supplied.
-    extracted = _only_new_extracted_facts(profile, parsed.extracted)
-    missing = [
-        name
-        for name in _ELIGIBILITY_FIELDS
-        if getattr(profile, name) is None and getattr(extracted, name, None) is None
+        is not None
     ]
-    if not profile.categories and not extracted.categories:
+    notice = (
+        "Matches are calculated from provider-confirmed structured rules and are not official "
+        "eligibility decisions."
+    )
+    if unstructured_candidates:
+        notice = (
+            f"{notice} {len(unstructured_candidates)} scholarship(s) did not publish enough "
+            "structured rules for a complete automatic check."
+        )
+
+    missing = [name for name in _ELIGIBILITY_FIELDS if getattr(effective_profile, name) is None]
+    if not effective_profile.categories:
         missing.append("categories")
 
     return DiscoveryResponse(
-        ai_available=True,
-        model=settings.ai_model,
+        ai_available=bool(settings.openrouter_api_key),
+        model=settings.ai_model if settings.openrouter_api_key else None,
         notice=notice,
         candidates=cards,
-        introduction=parsed.introduction,
-        assessments=parsed.assessments,
+        introduction=assessment_introduction(assessments),
+        assessments=assessments,
         mode="ASSESSMENT",
         intent="SCHOLARSHIP_SEARCH",
         requested_details=missing[:3],
         suggested_replies=[],
-        extracted=extracted,
+        extracted=turn_extracted,
     )
 
 

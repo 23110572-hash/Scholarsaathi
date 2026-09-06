@@ -216,6 +216,7 @@ class ScholarshipDetailResponse(ScholarshipCard):
 class DiscoveryProfile(APIModel):
     message: str | None = Field(default=None, max_length=1200)
     state: str | None = Field(default=None, min_length=2, max_length=2)
+    gender: str | None = Field(default=None, max_length=40)
     education_level: str | None = Field(default=None, max_length=60)
     course: str | None = Field(default=None, max_length=80)
     course_year: int | None = Field(default=None, ge=1, le=12)
@@ -228,6 +229,8 @@ class DiscoveryProfile(APIModel):
     def normalize(self) -> DiscoveryProfile:
         if self.state:
             self.state = self.state.upper()
+        if self.gender:
+            self.gender = self.gender.strip().upper()
         if self.education_level:
             self.education_level = self.education_level.upper()
         if self.course:
@@ -274,6 +277,7 @@ ChatIntent = Literal[
 # frontend can label them and merge them into the running profile safely.
 ChatDetailKey = Literal[
     "state",
+    "gender",
     "education_level",
     "course",
     "course_year",
@@ -291,6 +295,7 @@ class ChatExtractedFacts(APIModel):
     """
 
     state: str | None = None
+    gender: str | None = None
     education_level: str | None = None
     course: str | None = None
     course_year: int | None = Field(default=None, ge=1, le=12)
@@ -302,6 +307,8 @@ class ChatExtractedFacts(APIModel):
     def normalize(self) -> ChatExtractedFacts:
         if self.state:
             self.state = self.state.strip().upper()[:2] or None
+        if self.gender:
+            self.gender = self.gender.strip().upper()
         if self.education_level:
             self.education_level = self.education_level.strip().upper()
         if self.course:

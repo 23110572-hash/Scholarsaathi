@@ -15,6 +15,7 @@ import type {
 
 interface SearchProfile {
   state: string
+  gender: string
   education_level: string
   course: string
   course_year: string
@@ -26,6 +27,7 @@ interface SearchProfile {
 
 const emptySearchProfile: SearchProfile = {
   state: '',
+  gender: '',
   education_level: '',
   course: '',
   course_year: '',
@@ -39,6 +41,7 @@ const emptySearchProfile: SearchProfile = {
 function searchProfileFromStudentProfile(profile: StudentProfile): SearchProfile {
   return {
     state: profile.state_code ?? '',
+    gender: profile.gender ?? '',
     education_level: profile.education_level ?? '',
     course: profile.course ?? '',
     course_year: profile.course_year === null ? '' : String(profile.course_year),
@@ -122,6 +125,7 @@ export function StudentDashboard() {
         body: JSON.stringify({
           message: profile.message.trim() || undefined,
           state: profile.state || undefined,
+          gender: profile.gender || undefined,
           education_level: profile.education_level || undefined,
           course: profile.course || undefined,
           course_year: profile.course_year ? Number(profile.course_year) : undefined,
@@ -215,6 +219,15 @@ export function StudentDashboard() {
                     )}
                   </select>
                 </label>
+                <label>Gender
+                  <select value={profile.gender} onChange={(e) => setProfile({ ...profile, gender: e.target.value })}>
+                    <option value="">Any gender</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="MALE">Male</option>
+                    <option value="NON_BINARY">Non-binary</option>
+                    <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                  </select>
+                </label>
                 <label>Education level
                   <select value={profile.education_level} onChange={(e) => setProfile({ ...profile, education_level: e.target.value })}>
                     <option value="">Any level</option>
@@ -235,7 +248,7 @@ export function StudentDashboard() {
                 <label>Current year
                   <input type="number" min="1" max="12" value={profile.course_year} onChange={(e) => setProfile({ ...profile, course_year: e.target.value })} />
                 </label>
-                <label>Marks percentage
+                <label>Latest completed result (%)
                   <input type="number" min="0" max="100" value={profile.marks_percentage} onChange={(e) => setProfile({ ...profile, marks_percentage: e.target.value })} />
                 </label>
                 <label>Family-income range
