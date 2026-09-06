@@ -14,7 +14,10 @@ export const PrismaHero = () => {
           loop
           muted
           playsInline
-          className="absolute inset-0 h-full w-full object-cover"
+          disablePictureInPicture
+          tabIndex={-1}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
           src="/background-video.mp4"
         />
 
@@ -35,7 +38,7 @@ export const PrismaHero = () => {
               <h1
                 className="font-semibold leading-[0.85] tracking-[-0.05em] text-[11vw] sm:text-[9vw] md:text-[7.5vw] lg:text-[6.5vw] xl:text-[6vw] text-white drop-shadow-2xl"
               >
-                ScholarSaathi<span className="text-[0.4em] align-top relative top-[-0.2em]">*</span>
+                ScholarSaathi
               </h1>
             </div>
 

@@ -79,10 +79,10 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
 
   return (
     <header className="absolute inset-x-0 top-0 z-30 px-4 py-4 sm:px-7 sm:py-5">
-      <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
+      <div className="relative mx-auto flex w-full max-w-[90rem] items-center justify-between gap-4">
         <SiteBrand />
 
-        <nav className="hidden items-center rounded-full p-1.5 md:flex border border-[#d2dbec] bg-white shadow-sm" aria-label="Primary navigation">
+        <nav className="hidden items-center rounded-full p-1.5 md:absolute md:left-1/2 md:flex md:-translate-x-1/2 border border-[#d2dbec] bg-white shadow-sm" aria-label="Primary navigation">
           {primaryItems.map((item) => <NavLink key={item.to} className={primaryLinkClass} to={item.to} end={item.to === '/'}>{item.label}</NavLink>)}
         </nav>
 
