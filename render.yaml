@@ -23,6 +23,18 @@ services:
         value: https://scholarsaathi-two.vercel.app
       - key: DATABASE_URL
         sync: false
+      # Existing Blueprint services ignore newly added sync:false values. Add these
+      # five backend-only values manually in Render for existing services.
+      - key: SUPABASE_S3_ENDPOINT
+        sync: false
+      - key: SUPABASE_S3_REGION
+        sync: false
+      - key: SUPABASE_S3_BUCKET
+        sync: false
+      - key: SUPABASE_S3_ACCESS_KEY_ID
+        sync: false
+      - key: SUPABASE_S3_SECRET_ACCESS_KEY
+        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL

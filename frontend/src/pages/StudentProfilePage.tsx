@@ -170,8 +170,6 @@ export function StudentProfilePage() {
   const [uploading, setUploading] = useState(false)
   const [selectedDocumentType, setSelectedDocumentType] = useState<StudentDocumentType>('INCOME_CERTIFICATE')
   const [documentFile, setDocumentFile] = useState<File | null>(null)
-  const [documentIssueDate, setDocumentIssueDate] = useState('')
-  const [documentExpiryDate, setDocumentExpiryDate] = useState('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -261,6 +259,19 @@ export function StudentProfilePage() {
     } finally { setSaving(false) }
   }
 
+  function handleDocumentFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null
+    setError('')
+    setNotice('')
+    if (file && file.size > 10 * 1024 * 1024) {
+      event.target.value = ''
+      setDocumentFile(null)
+      setError('Documents must be 10 MB or smaller.')
+      return
+    }
+    setDocumentFile(file)
+  }
+
   async function uploadDocument(event: FormEvent) {
     event.preventDefault()
     if (!documentFile) { setError('Choose a PDF, PNG or JPEG document first.'); return }
@@ -270,14 +281,10 @@ export function StudentProfilePage() {
     const body = new FormData()
     body.append('document_type', selectedDocumentType)
     body.append('file', documentFile)
-    if (documentIssueDate) body.append('issue_date', documentIssueDate)
-    if (documentExpiryDate) body.append('expiry_date', documentExpiryDate)
     try {
       const uploaded = await api<StudentDocument>('/api/student/documents', { method: 'POST', body })
       setDocuments((current) => [uploaded, ...current])
       setDocumentFile(null)
-      setDocumentIssueDate('')
-      setDocumentExpiryDate('')
       if (documentInputRef.current) documentInputRef.current.value = ''
       setNotice('Document stored privately. Pending applications were checked automatically.')
     } catch (caught) {
@@ -390,19 +397,41 @@ export function StudentProfilePage() {
 
           <section className="modern-glass-card student-documents-card" id="documents" aria-labelledby="documents-title">
             <div className="student-documents-heading">
-              <span><ShieldCheck size={22} /></span>
-              <div><p className="modern-section-kicker">Private document vault</p><h2 id="documents-title">Application documents</h2><p>Encrypted private storage. ScholarSaathi attaches only documents required by the selected scholarship.</p></div>
+              <span aria-hidden="true"><ShieldCheck size={22} /></span>
+              <div>
+                <p className="modern-section-kicker">Private document vault</p>
+                <h2 id="documents-title">Application documents</h2>
+                <p>Encrypted private storage. ScholarSaathi attaches only the documents required for a selected scholarship.</p>
+              </div>
             </div>
 
             <form className="document-upload-form" onSubmit={(event) => void uploadDocument(event)}>
-              <label>Document type<select value={selectedDocumentType} onChange={(event) => setSelectedDocumentType(event.target.value as StudentDocumentType)}>{DOCUMENT_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><small>{DOCUMENT_TYPES.find((item) => item.value === selectedDocumentType)?.hint}</small></label>
-              <label className="document-file-picker"><span>{documentFile ? <FileCheck2 size={20} /> : <Upload size={20} />}{documentFile ? documentFile.name : 'Choose PDF, PNG or JPEG'}</span><input ref={documentInputRef} type="file" accept="application/pdf,image/png,image/jpeg" onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)} /></label>
-              <div className="document-date-grid"><label>Issue date <small>Optional</small><input type="date" value={documentIssueDate} onChange={(event) => setDocumentIssueDate(event.target.value)} /></label><label>Expiry date <small>Optional</small><input type="date" value={documentExpiryDate} onChange={(event) => setDocumentExpiryDate(event.target.value)} /></label></div>
-              <button className="modern-button-primary" type="submit" disabled={uploading || !documentFile}><Upload size={17} /> {uploading ? 'Uploading privately…' : 'Upload document'}</button>
+              <div className="document-upload-fields">
+                <label>Document type
+                  <select value={selectedDocumentType} onChange={(event) => setSelectedDocumentType(event.target.value as StudentDocumentType)}>
+                    {DOCUMENT_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <small className="document-field-hint">{DOCUMENT_TYPES.find((item) => item.value === selectedDocumentType)?.hint}</small>
+                </label>
+                <label className="document-file-field">Document file
+                  <span className={`document-file-picker${documentFile ? ' has-file' : ''}`}>
+                    {documentFile ? <FileCheck2 size={22} /> : <Upload size={22} />}
+                    <span className="document-file-copy">
+                      <strong>{documentFile?.name ?? 'Choose a file to upload'}</strong>
+                      <small>{documentFile ? formatBytes(documentFile.size) : 'PDF, PNG or JPEG · Maximum 10 MB'}</small>
+                    </span>
+                  </span>
+                  <input ref={documentInputRef} className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg" onChange={handleDocumentFileChange} />
+                </label>
+              </div>
+              <div className="document-upload-footer">
+                <p><ShieldCheck size={17} /> Private by default and shared only with your selected scholarship application.</p>
+                <button className="modern-button-primary" type="submit" disabled={uploading || !documentFile}><Upload size={17} /> {uploading ? 'Uploading privately…' : 'Upload document'}</button>
+              </div>
             </form>
 
             <div className="student-document-list">
-              {documents.length === 0 ? <div className="student-document-empty"><FileText size={24} /><strong>No documents uploaded yet</strong><p>Add the documents commonly required for your scholarships.</p></div> : documents.map((document) => <article className="student-document-row" key={document.id}><span className="student-document-icon"><FileText size={20} /></span><div><strong>{DOCUMENT_TYPES.find((item) => item.value === document.document_type)?.label ?? formatToken(document.document_type)}</strong><p>{document.original_filename} · {formatBytes(document.size_bytes)}</p>{document.expiry_date && <small>Valid until {new Date(document.expiry_date).toLocaleDateString('en-IN')}</small>}</div><div className="student-document-actions"><button type="button" onClick={() => void downloadDocument(document)} aria-label={`Download ${document.original_filename}`}><Download size={17} /></button><button type="button" onClick={() => void deleteDocument(document)} aria-label={`Delete ${document.original_filename}`}><Trash2 size={17} /></button></div></article>)}
+              {documents.length === 0 ? <div className="student-document-empty"><FileText size={28} /><strong>No documents uploaded yet</strong><p>Add the documents commonly required for your scholarships.</p></div> : documents.map((document) => <article className="student-document-row" key={document.id}><span className="student-document-icon"><FileText size={20} /></span><div><strong>{DOCUMENT_TYPES.find((item) => item.value === document.document_type)?.label ?? formatToken(document.document_type)}</strong><p>{document.original_filename} · {formatBytes(document.size_bytes)}</p></div><div className="student-document-actions"><button type="button" title="Download document" onClick={() => void downloadDocument(document)} aria-label={`Download ${document.original_filename}`}><Download size={17} /></button><button type="button" title="Delete document" onClick={() => void deleteDocument(document)} aria-label={`Delete ${document.original_filename}`}><Trash2 size={17} /></button></div></article>)}
             </div>
           </section>
 
