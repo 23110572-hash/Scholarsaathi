@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -5,6 +6,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.database import get_db
 from app.dependencies import AuthContext, get_current_auth, require_csrf
 from app.models import (
@@ -36,9 +38,16 @@ from app.security import (
     set_auth_cookies,
     verify_password,
 )
+from app.services.application_workflow import (
+    claim_anonymous_intents,
+    hash_anonymous_intent_token,
+    resume_pending_intents_for_student,
+)
 from app.utils import slugify
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
+settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _unique_organization_slug(
@@ -95,6 +104,32 @@ def _session_user(db: Session, account: Account) -> SessionUserResponse:
     )
 
 
+def _claim_login_intents(
+    db: Session,
+    account: Account,
+    request: Request,
+    response: Response,
+) -> None:
+    if account.realm != AccountRealm.STUDENT:
+        return
+    raw_token = request.cookies.get(settings.application_intent_cookie_name)
+    if not raw_token:
+        return
+    try:
+        claim_anonymous_intents(
+            db,
+            student_account_id=account.id,
+            anonymous_token_hash=hash_anonymous_intent_token(raw_token),
+        )
+        db.commit()
+        resume_pending_intents_for_student(db, account.id)
+    except Exception:
+        db.rollback()
+        logger.error("Application intent claim failed for student account %s", account.id)
+        return
+    response.delete_cookie(settings.application_intent_cookie_name, path="/")
+
+
 def _login(
     payload: LoginRequest,
     expected_realm: AccountRealm,
@@ -125,6 +160,7 @@ def _login(
     _, raw_token = create_session(db, account, request.headers.get("user-agent"))
     db.commit()
     set_auth_cookies(response, raw_token)
+    _claim_login_intents(db, account, request, response)
     return _session_user(db, account)
 
 
@@ -173,6 +209,7 @@ def register_student(
         ) from exc
 
     set_auth_cookies(response, raw_token)
+    _claim_login_intents(db, account, request, response)
     return _session_user(db, account)
 
 

@@ -42,11 +42,22 @@ export interface StateOption {
 export interface StudentProfileInput {
   full_name: string | null
   display_alias: string | null
+  date_of_birth: string | null
+  gender: string | null
   state_code: string | null
+  district: string | null
+  institution_name: string | null
+  board_or_university: string | null
   education_level: string | null
   course: string | null
+  specialization: string | null
   course_year: number | null
+  current_semester: number | null
   marks_percentage: number | null
+  class_10_percentage: number | null
+  class_10_passing_year: number | null
+  class_12_percentage: number | null
+  class_12_passing_year: number | null
   family_income_range: string | null
   categories: string[]
   preferred_language: string
@@ -238,4 +249,76 @@ export interface ScholarshipQuery {
   education_level: string
   course: string
   offset: number
+}
+
+export type StudentDocumentType =
+  | 'CLASS_10_MARKSHEET'
+  | 'CLASS_12_MARKSHEET'
+  | 'CURRENT_MARKSHEET'
+  | 'INCOME_CERTIFICATE'
+  | 'CATEGORY_CERTIFICATE'
+  | 'DOMICILE_CERTIFICATE'
+  | 'DISABILITY_CERTIFICATE'
+
+export interface StudentDocument {
+  id: string
+  document_type: StudentDocumentType
+  original_filename: string
+  content_type: string
+  size_bytes: number
+  checksum_sha256: string
+  status: 'READY' | 'DELETED'
+  issue_date: string | null
+  expiry_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface StudentDocumentListResponse {
+  items: StudentDocument[]
+  total: number
+}
+
+export interface StudentDocumentDownloadResponse {
+  url: string
+  expires_at: string
+}
+
+export type ApplicationIntentStatus =
+  | 'WAITING_FOR_AUTH'
+  | 'WAITING_FOR_PROFILE'
+  | 'WAITING_FOR_DOCUMENTS'
+  | 'READY'
+  | 'SUBMITTING'
+  | 'SUBMITTED'
+  | 'BLOCKED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+
+export type ApplicationIntentOutcome =
+  | 'AUTH_REQUIRED'
+  | 'PROFILE_REQUIRED'
+  | 'DOCUMENTS_REQUIRED'
+  | 'READY'
+  | 'SUBMITTED'
+  | 'BLOCKED'
+  | 'EXPIRED'
+  | 'CANCELLED'
+
+export interface ApplicationIntentResponse {
+  scholarship_id: string
+  scholarship_title: string
+  intent_id: string
+  status: ApplicationIntentStatus
+  outcome: ApplicationIntentOutcome
+  assistant_message: string
+  missing_profile_fields: string[]
+  missing_document_types: StudentDocumentType[]
+  application_id: string | null
+  next_path: string | null
+  updated_at: string
+}
+
+export interface ApplicationIntentBatchResponse {
+  items: ApplicationIntentResponse[]
 }

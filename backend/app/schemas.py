@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import (
@@ -18,10 +18,13 @@ from pydantic import (
 from app.models import (
     AccountRealm,
     ApplicationFieldType,
+    ApplicationIntentStatus,
     ApplicationStatus,
     OrganizationType,
     OwnershipDomain,
     PublicationStatus,
+    StudentDocumentStatus,
+    StudentDocumentType,
 )
 
 
@@ -193,6 +196,7 @@ class ApplicationFieldResponse(APIModel):
     field_type: ApplicationFieldType
     required: bool
     options: list[str] | None
+    profile_binding: str | None
     sort_order: int
 
 
@@ -201,6 +205,7 @@ class ScholarshipDetailResponse(ScholarshipCard):
     provider_helpdesk_url: str
     evidence: list[SourceExcerpt]
     application_template_id: uuid.UUID | None
+    required_document_types: list[StudentDocumentType]
     application_fields: list[ApplicationFieldResponse]
 
 
@@ -360,13 +365,25 @@ _PHOTO_DATA_URL_PATTERN = r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0
 
 
 class StudentProfileUpdate(APIModel):
+    # PUT is intentionally replacement semantics: omitted nullable fields are cleared.
     full_name: str | None = Field(default=None, max_length=120)
     display_alias: str | None = Field(default=None, max_length=80)
+    date_of_birth: date | None = None
+    gender: str | None = Field(default=None, max_length=40)
     state_code: str | None = Field(default=None, min_length=2, max_length=2)
+    district: str | None = Field(default=None, max_length=120)
+    institution_name: str | None = Field(default=None, max_length=240)
+    board_or_university: str | None = Field(default=None, max_length=240)
     education_level: str | None = Field(default=None, max_length=60)
     course: str | None = Field(default=None, max_length=80)
+    specialization: str | None = Field(default=None, max_length=120)
     course_year: int | None = Field(default=None, ge=1, le=12)
+    current_semester: int | None = Field(default=None, ge=1, le=20)
     marks_percentage: float | None = Field(default=None, ge=0, le=100)
+    class_10_percentage: float | None = Field(default=None, ge=0, le=100)
+    class_10_passing_year: int | None = Field(default=None, ge=1950, le=2100)
+    class_12_percentage: float | None = Field(default=None, ge=0, le=100)
+    class_12_passing_year: int | None = Field(default=None, ge=1950, le=2100)
     family_income_range: str | None = Field(default=None, max_length=80)
     categories: list[str] = Field(default_factory=list, max_length=20)
     preferred_language: str = Field(default="en", min_length=2, max_length=10)
@@ -375,9 +392,14 @@ class StudentProfileUpdate(APIModel):
     @field_validator(
         "full_name",
         "display_alias",
+        "gender",
         "education_level",
         "course",
         "family_income_range",
+        "district",
+        "institution_name",
+        "board_or_university",
+        "specialization",
         mode="before",
     )
     @classmethod
@@ -397,17 +419,44 @@ class StudentProfileUpdate(APIModel):
 
     @model_validator(mode="after")
     def normalize(self) -> StudentProfileUpdate:
-        if self.full_name:
-            self.full_name = self.full_name.strip()
-        if self.display_alias:
-            self.display_alias = self.display_alias.strip()
+        for field_name in (
+            "full_name",
+            "display_alias",
+            "district",
+            "institution_name",
+            "board_or_university",
+            "specialization",
+        ):
+            value = getattr(self, field_name)
+            if value:
+                setattr(self, field_name, value.strip())
+        if self.gender:
+            self.gender = self.gender.strip().upper()
         if self.state_code:
             self.state_code = self.state_code.upper()
         if self.education_level:
-            self.education_level = self.education_level.upper()
+            self.education_level = self.education_level.strip().upper()
         if self.course:
-            self.course = self.course.upper()
-        # De-duplicate while preserving order so the stored list matches what was entered.
+            self.course = self.course.strip().upper()
+        if self.family_income_range:
+            self.family_income_range = self.family_income_range.strip().upper()
+
+        current_year = date.today().year
+        if self.date_of_birth and (
+            self.date_of_birth < date(1900, 1, 1) or self.date_of_birth > date.today()
+        ):
+            raise ValueError("Date of birth must be a valid past date")
+        for field_name in ("class_10_passing_year", "class_12_passing_year"):
+            value = getattr(self, field_name)
+            if value is not None and value > current_year + 1:
+                raise ValueError("Passing year cannot be more than one year in the future")
+        if (
+            self.class_10_passing_year is not None
+            and self.class_12_passing_year is not None
+            and self.class_12_passing_year < self.class_10_passing_year
+        ):
+            raise ValueError("Class 12 passing year cannot precede Class 10 passing year")
+
         self.categories = list(
             dict.fromkeys(
                 value.strip().upper() for value in self.categories if value and value.strip()
@@ -419,17 +468,65 @@ class StudentProfileUpdate(APIModel):
 class StudentProfileResponse(APIModel):
     full_name: str | None
     display_alias: str | None
+    date_of_birth: date | None
+    gender: str | None
     state_code: str | None
+    district: str | None
+    institution_name: str | None
+    board_or_university: str | None
     education_level: str | None
     course: str | None
+    specialization: str | None
     course_year: int | None
+    current_semester: int | None
     marks_percentage: float | None
+    class_10_percentage: float | None
+    class_10_passing_year: int | None
+    class_12_percentage: float | None
+    class_12_passing_year: int | None
     family_income_range: str | None
     categories: list[str]
     preferred_language: str
     photo_data_url: str | None
     completeness: int = Field(ge=0, le=100)
     updated_at: datetime | None = None
+
+
+class StudentDocumentResponse(APIModel):
+    id: uuid.UUID
+    document_type: StudentDocumentType
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    checksum_sha256: str
+    status: StudentDocumentStatus
+    issue_date: date | None
+    expiry_date: date | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class StudentDocumentListResponse(APIModel):
+    items: list[StudentDocumentResponse]
+    total: int
+
+
+class StudentDocumentDownloadResponse(APIModel):
+    url: str
+    expires_at: datetime
+
+
+class ApplicationDocumentResponse(APIModel):
+    id: uuid.UUID
+    student_document_id: uuid.UUID
+    document_type: StudentDocumentType
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    checksum_sha256: str
+    issue_date: date | None
+    expiry_date: date | None
+    attached_at: datetime
 
 
 class ApplicationCreateRequest(APIModel):
@@ -462,8 +559,11 @@ class ApplicationDetailResponse(APIModel):
     organization_name: str
     is_synthetic: bool
     consent_recorded_at: datetime | None
+    agent_submission_authorized_at: datetime | None
     submitted_at: datetime | None
     fields: list[ApplicationFieldResponse]
+    required_document_types: list[StudentDocumentType]
+    documents: list[ApplicationDocumentResponse]
     answered_field_ids: list[uuid.UUID]
     events: list[ApplicationEventResponse]
 
@@ -485,6 +585,58 @@ class ApplicationStatusUpdate(APIModel):
         "REJECTED",
     ]
     message: str = Field(min_length=5, max_length=1000)
+
+
+ApplicationAuthorizationSource = Literal[
+    "ASSISTANT_EXPLICIT_APPLY",
+    "SCHOLARSHIP_DETAIL_APPLY",
+    "SAVED_SCHOLARSHIP_APPLY",
+    "APPLICATION_PAGE_APPLY",
+]
+
+
+class ApplicationIntentCreateRequest(APIModel):
+    scholarship_ids: list[uuid.UUID] = Field(min_length=1, max_length=5)
+    explicit_apply_authorization: bool
+    authorization_source: ApplicationAuthorizationSource
+
+    @model_validator(mode="after")
+    def validate_explicit_authorization(self) -> ApplicationIntentCreateRequest:
+        if not self.explicit_apply_authorization:
+            raise ValueError("Explicit apply authorization is required")
+        if len(set(self.scholarship_ids)) != len(self.scholarship_ids):
+            raise ValueError("Scholarship IDs must be unique")
+        return self
+
+
+ApplicationIntentOutcome = Literal[
+    "AUTH_REQUIRED",
+    "PROFILE_REQUIRED",
+    "DOCUMENTS_REQUIRED",
+    "READY",
+    "SUBMITTED",
+    "BLOCKED",
+    "EXPIRED",
+    "CANCELLED",
+]
+
+
+class ApplicationIntentResponse(APIModel):
+    scholarship_id: uuid.UUID
+    scholarship_title: str
+    intent_id: uuid.UUID
+    status: ApplicationIntentStatus
+    outcome: ApplicationIntentOutcome
+    assistant_message: str
+    missing_profile_fields: list[str]
+    missing_document_types: list[StudentDocumentType]
+    application_id: uuid.UUID | None
+    next_path: str | None
+    updated_at: datetime
+
+
+class ApplicationIntentBatchResponse(APIModel):
+    items: list[ApplicationIntentResponse]
 
 
 class ScholarshipQuestionRequest(APIModel):

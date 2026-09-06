@@ -170,6 +170,7 @@ def scholarship_detail(
             for chunk in chunks
         ],
         application_template_id=template.id if template else None,
+        required_document_types=(template.required_document_types if template else []),
         application_fields=[
             ApplicationFieldResponse(
                 id=field.id,
@@ -179,6 +180,7 @@ def scholarship_detail(
                 field_type=field.field_type,
                 required=field.required,
                 options=field.options_json,
+                profile_binding=field.profile_binding,
                 sort_order=field.sort_order,
             )
             for field in fields

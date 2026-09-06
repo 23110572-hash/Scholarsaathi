@@ -394,7 +394,7 @@ Publication states run in parallel: `DRAFT`, `PUBLISHED`, `PAUSED`, `EXPIRED`, `
 
 - **Model:** `openai/gpt-4o-mini` via [OpenRouter](https://openrouter.ai)
 - **Orchestration:** LangGraph state machines with strict JSON-schema structured output
-- **Database:** PostgreSQL, ownership-partitioned, Alembic migrations (head `20260829_0003`)
+- **Database:** PostgreSQL, ownership-partitioned, Alembic migrations (head `20260829_0004`)
 - **Hosting:** Vercel (frontend), Render (API), managed PostgreSQL
 
 ---
@@ -471,7 +471,7 @@ POST   /api/organizations/me/applications/{id}/status
 ```
 scholarsaathi/
 ├── backend/
-│   ├── alembic/versions/          three migrations, head 20260829_0003
+│   ├── alembic/versions/          four migrations, head 20260829_0004
 │   └── app/
 │       ├── agents/scholarship_ai.py    LangGraph graphs, prompts, citation validator
 │       ├── api/                        auth, scholarships, students, organizations,
@@ -515,7 +515,7 @@ scholarsaathi/
 
 - Scholarship content is **synthetic seed data** modelled on real scheme structures. We have not ingested live NSP scheme data; that needs provider onboarding or an official data agreement.
 - No live payment or disbursal integration. Disbursal stays with the actual scheme owner.
-- Document upload for applications is not built; providers verify documents through their own process.
+- Private application-document uploads use Supabase S3-compatible storage with backend-only credentials, ownership checks, checksums and short-lived signed downloads. Agent-prepared applications are submitted to ScholarSaathi's internal provider queue; external NSP/provider submission requires an official integration.
 - English-first UI. The assistant answers in the student's preferred language, but the interface chrome is not yet fully localised.
 
 **Next**

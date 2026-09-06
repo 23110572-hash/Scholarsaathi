@@ -38,14 +38,7 @@ class OrganizationContext:
     membership: OrganizationMember
 
 
-def get_current_auth(
-    request: Request,
-    db: Session = Depends(get_db),
-) -> AuthContext:
-    raw_token = request.cookies.get(settings.session_cookie_name)
-    if not raw_token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required")
-
+def _resolve_auth(raw_token: str, db: Session) -> AuthContext:
     token_hash = hash_session_token(raw_token)
     row = db.execute(
         select(AuthSession, Account)
@@ -67,14 +60,26 @@ def get_current_auth(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session has expired")
     if account.status != AccountStatus.ACTIVE:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is not active")
-
     return AuthContext(account=account, session=auth_session, raw_token=raw_token)
 
 
-def require_csrf(
+def get_optional_auth(
     request: Request,
-    auth: AuthContext = Depends(get_current_auth),
+    db: Session = Depends(get_db),
+) -> AuthContext | None:
+    raw_token = request.cookies.get(settings.session_cookie_name)
+    return _resolve_auth(raw_token, db) if raw_token else None
+
+
+def get_current_auth(
+    auth: AuthContext | None = Depends(get_optional_auth),
 ) -> AuthContext:
+    if auth is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required")
+    return auth
+
+
+def _validate_csrf(request: Request, auth: AuthContext) -> None:
     header_token = request.headers.get("X-CSRF-Token")
     cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
     expected = csrf_token_for_session(auth.raw_token)
@@ -84,6 +89,13 @@ def require_csrf(
         header_token, expected
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "CSRF token is invalid")
+
+
+def require_csrf(
+    request: Request,
+    auth: AuthContext = Depends(get_current_auth),
+) -> AuthContext:
+    _validate_csrf(request, auth)
     return auth
 
 
@@ -96,6 +108,26 @@ def require_student(auth: AuthContext = Depends(get_current_auth)) -> AuthContex
 def require_student_write(auth: AuthContext = Depends(require_csrf)) -> AuthContext:
     if auth.account.realm != AccountRealm.STUDENT:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Student account required")
+    return auth
+
+
+def optional_student_auth(
+    auth: AuthContext | None = Depends(get_optional_auth),
+) -> AuthContext | None:
+    if auth is not None and auth.account.realm != AccountRealm.STUDENT:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Student account required")
+    return auth
+
+
+def optional_student_write(
+    request: Request,
+    auth: AuthContext | None = Depends(get_optional_auth),
+) -> AuthContext | None:
+    if auth is None:
+        return None
+    if auth.account.realm != AccountRealm.STUDENT:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Student account required")
+    _validate_csrf(request, auth)
     return auth
 
 

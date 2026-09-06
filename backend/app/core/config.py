@@ -18,6 +18,17 @@ class Settings(BaseSettings):
     session_cookie_name: str = "scholarsaathi_session"
     session_cookie_secure: bool = False
     session_ttl_hours: int = 24
+    application_intent_cookie_name: str = "scholarsaathi_application_intent"
+    application_intent_ttl_hours: int = Field(default=72, ge=1, le=24 * 30)
+    supabase_s3_endpoint: str | None = None
+    supabase_s3_region: str | None = None
+    supabase_s3_bucket: str | None = None
+    supabase_s3_access_key_id: SecretStr | None = None
+    supabase_s3_secret_access_key: SecretStr | None = None
+    supabase_s3_upload_max_bytes: int = Field(
+        default=10 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024
+    )
+    supabase_s3_signed_url_ttl_seconds: int = Field(default=300, ge=60, le=3600)
     cors_origins: str = "https://scholarsaathi-two.vercel.app"
     openrouter_api_key: SecretStr | None = None
     ai_model: str = "openai/gpt-4o-mini"
@@ -52,6 +63,25 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_security(self) -> Self:
+        storage_values = (
+            self.supabase_s3_endpoint,
+            self.supabase_s3_region,
+            self.supabase_s3_bucket,
+            (
+                self.supabase_s3_access_key_id.get_secret_value()
+                if self.supabase_s3_access_key_id
+                else None
+            ),
+            (
+                self.supabase_s3_secret_access_key.get_secret_value()
+                if self.supabase_s3_secret_access_key
+                else None
+            ),
+        )
+        configured = [bool(value and value.strip()) for value in storage_values]
+        if any(configured) and not all(configured):
+            raise ValueError("All SUPABASE_S3 connection settings must be provided together")
+
         if self.app_env.strip().lower() != "production":
             return self
 

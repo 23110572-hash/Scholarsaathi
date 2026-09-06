@@ -5,7 +5,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api import applications, auth, discovery, organizations, scholarships, students
+from app.api import (
+    application_intents,
+    applications,
+    auth,
+    discovery,
+    documents,
+    organizations,
+    scholarships,
+    students,
+)
 from app.core.config import get_settings
 from app.database import get_db
 
@@ -37,7 +46,13 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if request.url.path.startswith(
-        ("/api/ai", "/api/applications", "/api/auth/me", "/api/student")
+        (
+            "/api/ai",
+            "/api/application-intents",
+            "/api/applications",
+            "/api/auth/me",
+            "/api/student",
+        )
     ):
         response.headers["Cache-Control"] = "no-store"
     return response
@@ -72,5 +87,7 @@ app.include_router(auth.router)
 app.include_router(scholarships.router)
 app.include_router(organizations.router)
 app.include_router(discovery.router)
+app.include_router(application_intents.router)
 app.include_router(applications.router)
+app.include_router(documents.router)
 app.include_router(students.router)

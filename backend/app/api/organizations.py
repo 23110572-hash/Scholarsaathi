@@ -16,6 +16,7 @@ from app.dependencies import (
 )
 from app.models import (
     AIExtractionDraft,
+    ApplicationTemplate,
     AuditEvent,
     KnowledgeChunk,
     MemberRole,
@@ -34,6 +35,7 @@ from app.schemas import (
     ScholarshipDraftCreate,
     ScholarshipListResponse,
 )
+from app.services.application_templates import create_default_application_template
 from app.utils import slugify
 
 router = APIRouter(prefix="/api", tags=["organizations"])
@@ -185,6 +187,7 @@ def create_scholarship_draft(
     db.flush()
 
     chunk_ids: list[str] = []
+    first_chunk_id: uuid.UUID | None = None
     for ordinal, section in enumerate(payload.source_sections, start=1):
         chunk = KnowledgeChunk(
             domain=domain,
@@ -199,7 +202,21 @@ def create_scholarship_draft(
         )
         db.add(chunk)
         db.flush()
+        if first_chunk_id is None:
+            first_chunk_id = chunk.id
         chunk_ids.append(str(chunk.id))
+
+    create_default_application_template(
+        db,
+        domain=domain,
+        organization_id=context.organization.id,
+        scholarship_version_id=version.id,
+        created_by=context.auth.account.id,
+        confirmed_at=now,
+        source_chunk_id=first_chunk_id,
+        course_options=payload.course_families,
+        state_options=payload.applicable_state_codes,
+    )
 
     db.add_all(
         [
@@ -282,6 +299,19 @@ def publish_scholarship_version(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "At least one provider-confirmed source section is required",
+        )
+    template = db.scalar(
+        select(ApplicationTemplate.id).where(
+            ApplicationTemplate.domain == domain,
+            ApplicationTemplate.organization_id == context.organization.id,
+            ApplicationTemplate.scholarship_version_id == version.id,
+            ApplicationTemplate.status == "OWNER_CONFIRMED",
+        )
+    )
+    if not template:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "An owner-confirmed application template is required before publication",
         )
 
     now = datetime.now(UTC)

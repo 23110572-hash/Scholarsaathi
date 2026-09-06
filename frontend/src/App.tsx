@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { EligibilityAssistant } from './components/EligibilityAssistant'
+import { IntentResumeCoordinator } from './components/IntentResumeCoordinator'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AssistantProvider } from './context/AssistantContext'
@@ -30,6 +31,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AssistantProvider>
+        <IntentResumeCoordinator />
         <Layout>
         <Routes>
           <Route path="/" element={<LandingPage />} />

@@ -36,6 +36,10 @@ from app.models import (
     StudentSetting,
     ownership_domain_for_type,
 )
+from app.services.application_templates import (
+    DEFAULT_REQUIRED_DOCUMENT_TYPES,
+    PROFILE_BINDINGS_BY_FIELD_KEY,
+)
 
 SEED_NAMESPACE = uuid.UUID("52b9b24a-9e5f-4e19-81b1-4da8245b9ae1")
 DEMO_PASSWORD = "Demo@ScholarSaathi2026"
@@ -638,6 +642,7 @@ def seed_database() -> None:
                     scholarship_version_id=version_id,
                     template_version=1,
                     status="OWNER_CONFIRMED",
+                    required_document_types=list(DEFAULT_REQUIRED_DOCUMENT_TYPES),
                     created_by=publisher_id,
                     confirmed_by=publisher_id,
                     confirmed_at=timestamp(8, 19),
@@ -711,6 +716,7 @@ def seed_database() -> None:
                         field_type=field_type,
                         required=required,
                         options_json=options,
+                        profile_binding=PROFILE_BINDINGS_BY_FIELD_KEY.get(key),
                         source_chunk_id=first_chunk_ids[slug],
                         sort_order=order,
                     )

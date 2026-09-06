@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Computed,
+    Date,
     DateTime,
     Enum,
     ForeignKeyConstraint,
@@ -106,6 +107,45 @@ class ApplicationFieldType(enum.StrEnum):
     MULTISELECT = "MULTISELECT"
     CHECKBOX = "CHECKBOX"
     TEXTAREA = "TEXTAREA"
+
+
+class StudentDocumentType(enum.StrEnum):
+    CLASS_10_MARKSHEET = "CLASS_10_MARKSHEET"
+    CLASS_12_MARKSHEET = "CLASS_12_MARKSHEET"
+    CURRENT_MARKSHEET = "CURRENT_MARKSHEET"
+    INCOME_CERTIFICATE = "INCOME_CERTIFICATE"
+    CATEGORY_CERTIFICATE = "CATEGORY_CERTIFICATE"
+    DOMICILE_CERTIFICATE = "DOMICILE_CERTIFICATE"
+    DISABILITY_CERTIFICATE = "DISABILITY_CERTIFICATE"
+
+
+class StudentDocumentStatus(enum.StrEnum):
+    READY = "READY"
+    DELETED = "DELETED"
+
+
+class ApplicationIntentStatus(enum.StrEnum):
+    WAITING_FOR_AUTH = "WAITING_FOR_AUTH"
+    WAITING_FOR_PROFILE = "WAITING_FOR_PROFILE"
+    WAITING_FOR_DOCUMENTS = "WAITING_FOR_DOCUMENTS"
+    READY = "READY"
+    SUBMITTING = "SUBMITTING"
+    SUBMITTED = "SUBMITTED"
+    BLOCKED = "BLOCKED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+
+
+FINAL_APPLICATION_STATUSES = frozenset(
+    {
+        ApplicationStatus.SUBMITTED,
+        ApplicationStatus.UNDER_ORGANIZATION_REVIEW,
+        ApplicationStatus.RESUBMITTED,
+        ApplicationStatus.APPROVED,
+        ApplicationStatus.REJECTED,
+        ApplicationStatus.WITHDRAWN,
+    }
+)
 
 
 def _enum(enum_class: type[enum.Enum], name: str) -> Enum:
@@ -208,6 +248,38 @@ class StudentSetting(Base):
     __tablename__ = "student_settings"
     __table_args__ = (
         CheckConstraint("account_domain = 'STUDENT'", name="v2_ck_setting_student_domain"),
+        CheckConstraint(
+            "course_year IS NULL OR course_year BETWEEN 1 AND 12",
+            name="v2_ck_setting_course_year",
+        ),
+        CheckConstraint(
+            "marks_percentage IS NULL OR marks_percentage BETWEEN 0 AND 100",
+            name="v2_ck_setting_marks_percentage",
+        ),
+        CheckConstraint(
+            "current_semester IS NULL OR current_semester BETWEEN 1 AND 20",
+            name="v4_ck_setting_current_semester",
+        ),
+        CheckConstraint(
+            "class_10_percentage IS NULL OR class_10_percentage BETWEEN 0 AND 100",
+            name="v4_ck_setting_class_10_percentage",
+        ),
+        CheckConstraint(
+            "class_12_percentage IS NULL OR class_12_percentage BETWEEN 0 AND 100",
+            name="v4_ck_setting_class_12_percentage",
+        ),
+        CheckConstraint(
+            "class_10_passing_year IS NULL OR class_10_passing_year BETWEEN 1950 AND 2100",
+            name="v4_ck_setting_class_10_passing_year",
+        ),
+        CheckConstraint(
+            "class_12_passing_year IS NULL OR class_12_passing_year BETWEEN 1950 AND 2100",
+            name="v4_ck_setting_class_12_passing_year",
+        ),
+        CheckConstraint(
+            "date_of_birth IS NULL OR date_of_birth >= DATE '1900-01-01'",
+            name="v4_ck_setting_date_of_birth",
+        ),
         ForeignKeyConstraint(
             ["account_domain", "account_id"],
             ["public.accounts.domain", "public.accounts.id"],
@@ -225,20 +297,30 @@ class StudentSetting(Base):
     )
     display_alias: Mapped[str | None] = mapped_column(String(80))
     preferred_language: Mapped[str] = mapped_column(String(10), default="en")
-    # Eligibility profile. Every field is optional so a student can complete the profile
-    # gradually; the discovery assistant reads whatever is present.
+    # Eligibility and reusable application profile. Fields remain nullable so PUT can
+    # intentionally clear values and a student can complete the profile progressively.
     full_name: Mapped[str | None] = mapped_column(String(120))
+    date_of_birth: Mapped[date | None] = mapped_column(Date)
+    gender: Mapped[str | None] = mapped_column(String(40))
     state_code: Mapped[str | None] = mapped_column(String(2))
+    district: Mapped[str | None] = mapped_column(String(120))
+    institution_name: Mapped[str | None] = mapped_column(String(240))
+    board_or_university: Mapped[str | None] = mapped_column(String(240))
     education_level: Mapped[str | None] = mapped_column(String(60))
     course: Mapped[str | None] = mapped_column(String(80))
+    specialization: Mapped[str | None] = mapped_column(String(120))
     course_year: Mapped[int | None] = mapped_column(Integer)
+    current_semester: Mapped[int | None] = mapped_column(Integer)
     marks_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    class_10_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    class_10_passing_year: Mapped[int | None] = mapped_column(Integer)
+    class_12_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    class_12_passing_year: Mapped[int | None] = mapped_column(Integer)
     family_income_range: Mapped[str | None] = mapped_column(String(80))
     categories: Mapped[list[str]] = mapped_column(
         ARRAY(String(80)), nullable=False, server_default=text("'{}'")
     )
-    # Profile photos are stored as a size-bounded base64 data URL rather than a file:
-    # there is no object store configured and the Render disk is ephemeral.
+    # The legacy avatar remains inline; application documents use private object storage.
     photo_data_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -673,6 +755,12 @@ class ApplicationTemplate(Base):
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     template_version: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False)
+    required_document_types: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=lambda: ["INCOME_CERTIFICATE", "CURRENT_MARKSHEET"],
+        server_default=text("'[\"INCOME_CERTIFICATE\", \"CURRENT_MARKSHEET\"]'::jsonb"),
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -733,6 +821,7 @@ class ApplicationTemplateField(Base):
     )
     required: Mapped[bool] = mapped_column(Boolean, nullable=False)
     options_json: Mapped[list[str] | None] = mapped_column(JSONB)
+    profile_binding: Mapped[str | None] = mapped_column(String(80))
     source_chunk_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -768,6 +857,71 @@ class SavedScholarship(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class StudentDocument(Base):
+    __tablename__ = "student_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "student_domain = 'STUDENT'", name="v4_ck_student_document_domain"
+        ),
+        CheckConstraint("size_bytes > 0", name="v4_ck_student_document_size"),
+        CheckConstraint(
+            "expiry_date IS NULL OR issue_date IS NULL OR expiry_date >= issue_date",
+            name="v4_ck_student_document_dates",
+        ),
+        ForeignKeyConstraint(
+            ["student_domain", "student_account_id"],
+            ["public.accounts.domain", "public.accounts.id"],
+            name="v4_fk_student_document_owner",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "student_account_id", "id", name="v4_uq_student_document_owner_id"
+        ),
+        UniqueConstraint("storage_key", name="v4_uq_student_document_storage_key"),
+        Index(
+            "v4_ix_student_documents_owner_status",
+            "student_account_id",
+            "status",
+        ),
+        {"schema": "student"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    student_domain: Mapped[OwnershipDomain] = mapped_column(
+        _enum(OwnershipDomain, "ownership_domain"),
+        nullable=False,
+        default=OwnershipDomain.STUDENT,
+    )
+    student_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    document_type: Mapped[StudentDocumentType] = mapped_column(
+        _enum(StudentDocumentType, "student_document_type"), nullable=False
+    )
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[StudentDocumentStatus] = mapped_column(
+        _enum(StudentDocumentStatus, "student_document_status"),
+        nullable=False,
+        default=StudentDocumentStatus.READY,
+    )
+    issue_date: Mapped[date | None] = mapped_column(Date)
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
 
@@ -813,6 +967,15 @@ class Application(Base):
             "id", "provider_domain", "application_template_id",
             name="v2_uq_application_template_context",
         ),
+        UniqueConstraint(
+            "id", "student_account_id", name="v4_uq_application_student_context"
+        ),
+        UniqueConstraint(
+            "student_account_id",
+            "provider_domain",
+            "scholarship_version_id",
+            name="v4_uq_application_student_version",
+        ),
         {"schema": "student"},
     )
 
@@ -840,6 +1003,9 @@ class Application(Base):
         Boolean, nullable=False, default=False, server_default=text("false")
     )
     consent_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    agent_submission_authorized_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -884,6 +1050,177 @@ class ApplicationAnswer(Base):
     )
     application_template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     encrypted_value: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ApplicationDocument(Base):
+    __tablename__ = "application_documents"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["application_id", "student_account_id"],
+            ["student.applications.id", "student.applications.student_account_id"],
+            name="v4_fk_application_document_application",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["student_account_id", "student_document_id"],
+            ["student.student_documents.student_account_id", "student.student_documents.id"],
+            name="v4_fk_application_document_source",
+        ),
+        UniqueConstraint(
+            "application_id",
+            "document_type",
+            name="v4_uq_application_document_type",
+        ),
+        Index("v4_ix_application_documents_document", "student_document_id"),
+        {"schema": "student"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    student_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    student_document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    document_type: Mapped[StudentDocumentType] = mapped_column(
+        _enum(StudentDocumentType, "student_document_type"), nullable=False
+    )
+    storage_key_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    original_filename_snapshot: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type_snapshot: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes_snapshot: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    checksum_sha256_snapshot: Mapped[str] = mapped_column(String(64), nullable=False)
+    issue_date_snapshot: Mapped[date | None] = mapped_column(Date)
+    expiry_date_snapshot: Mapped[date | None] = mapped_column(Date)
+    attached_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ApplicationIntent(Base):
+    __tablename__ = "application_intents"
+    __table_args__ = (
+        CheckConstraint(
+            "student_domain = 'STUDENT'", name="v4_ck_application_intent_student_domain"
+        ),
+        CheckConstraint(
+            "student_account_id IS NOT NULL OR anonymous_token_hash IS NOT NULL",
+            name="v4_ck_application_intent_owner",
+        ),
+        ForeignKeyConstraint(
+            ["student_domain", "student_account_id"],
+            ["public.accounts.domain", "public.accounts.id"],
+            name="v4_fk_application_intent_student",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["scholarship_domain", "scholarship_id"],
+            ["public.scholarships.domain", "public.scholarships.id"],
+            name="v4_fk_application_intent_scholarship",
+        ),
+        ForeignKeyConstraint(
+            [
+                "scholarship_domain",
+                "organization_id",
+                "scholarship_id",
+                "scholarship_version_id",
+            ],
+            [
+                "public.scholarship_versions.domain",
+                "public.scholarship_versions.organization_id",
+                "public.scholarship_versions.scholarship_id",
+                "public.scholarship_versions.id",
+            ],
+            name="v4_fk_application_intent_version",
+        ),
+        ForeignKeyConstraint(
+            [
+                "scholarship_domain",
+                "organization_id",
+                "scholarship_version_id",
+                "application_template_id",
+            ],
+            [
+                "public.application_templates.domain",
+                "public.application_templates.organization_id",
+                "public.application_templates.scholarship_version_id",
+                "public.application_templates.id",
+            ],
+            name="v4_fk_application_intent_template",
+        ),
+        ForeignKeyConstraint(
+            ["application_id"],
+            ["student.applications.id"],
+            name="v4_fk_application_intent_application",
+            ondelete="SET NULL",
+        ),
+        UniqueConstraint(
+            "student_account_id",
+            "scholarship_domain",
+            "scholarship_id",
+            name="v4_uq_application_intent_student_target",
+        ),
+        UniqueConstraint(
+            "anonymous_token_hash",
+            "scholarship_domain",
+            "scholarship_id",
+            name="v4_uq_application_intent_anonymous_target",
+        ),
+        UniqueConstraint("application_id", name="v4_uq_application_intent_application"),
+        Index(
+            "v4_ix_application_intents_student_status",
+            "student_account_id",
+            "status",
+        ),
+        Index(
+            "v4_ix_application_intents_anonymous",
+            "anonymous_token_hash",
+            "status",
+        ),
+        {"schema": "student"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    student_domain: Mapped[OwnershipDomain] = mapped_column(
+        _enum(OwnershipDomain, "ownership_domain"),
+        nullable=False,
+        default=OwnershipDomain.STUDENT,
+    )
+    student_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    anonymous_token_hash: Mapped[str | None] = mapped_column(String(64))
+    scholarship_domain: Mapped[OwnershipDomain] = mapped_column(
+        _enum(OwnershipDomain, "ownership_domain"), nullable=False
+    )
+    scholarship_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    scholarship_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    application_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    application_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    status: Mapped[ApplicationIntentStatus] = mapped_column(
+        _enum(ApplicationIntentStatus, "application_intent_status"),
+        nullable=False,
+        default=ApplicationIntentStatus.WAITING_FOR_AUTH,
+    )
+    explicit_authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    explicit_authorization_source: Mapped[str | None] = mapped_column(String(80))
+    missing_profile_fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    missing_document_types: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    safe_last_error: Mapped[str | None] = mapped_column(String(500))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

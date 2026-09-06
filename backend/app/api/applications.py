@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.api.scholarships import published_scholarship_query
@@ -23,6 +21,7 @@ from app.dependencies import (
 from app.models import (
     Application,
     ApplicationAnswer,
+    ApplicationDocument,
     ApplicationEvent,
     ApplicationStatus,
     ApplicationTemplate,
@@ -38,11 +37,22 @@ from app.schemas import (
     ApplicationCreateRequest,
     ApplicationCreateResponse,
     ApplicationDetailResponse,
+    ApplicationDocumentResponse,
     ApplicationEventResponse,
     ApplicationFieldResponse,
     ApplicationListItem,
     ApplicationStatusUpdate,
     MessageResponse,
+)
+from app.services.application_validation import (
+    application_target_error,
+    attach_document_snapshots,
+    field_value_is_valid,
+    invalid_required_field_keys,
+    load_decrypted_application_answers,
+    required_document_types,
+    upsert_encrypted_answer,
+    valid_student_documents,
 )
 
 router = APIRouter(prefix="/api", tags=["applications"])
@@ -92,6 +102,12 @@ def _application_detail(
     version: ScholarshipVersion,
     organization: Organization,
 ) -> ApplicationDetailResponse:
+    template = db.scalar(
+        select(ApplicationTemplate).where(
+            ApplicationTemplate.domain == application.provider_domain,
+            ApplicationTemplate.id == application.application_template_id,
+        )
+    )
     fields = db.scalars(
         select(ApplicationTemplateField)
         .where(
@@ -108,6 +124,11 @@ def _application_detail(
             )
         ).all()
     )
+    documents = db.scalars(
+        select(ApplicationDocument)
+        .where(ApplicationDocument.application_id == application.id)
+        .order_by(ApplicationDocument.attached_at)
+    ).all()
     events = db.scalars(
         select(ApplicationEvent)
         .where(ApplicationEvent.application_id == application.id)
@@ -121,6 +142,7 @@ def _application_detail(
         organization_name=organization.display_name,
         is_synthetic=application.is_synthetic,
         consent_recorded_at=application.consent_recorded_at,
+        agent_submission_authorized_at=application.agent_submission_authorized_at,
         submitted_at=application.submitted_at,
         fields=[
             ApplicationFieldResponse(
@@ -131,9 +153,26 @@ def _application_detail(
                 field_type=field.field_type,
                 required=field.required,
                 options=field.options_json,
+                profile_binding=field.profile_binding,
                 sort_order=field.sort_order,
             )
             for field in fields
+        ],
+        required_document_types=(template.required_document_types if template else []),
+        documents=[
+            ApplicationDocumentResponse(
+                id=document.id,
+                student_document_id=document.student_document_id,
+                document_type=document.document_type,
+                original_filename=document.original_filename_snapshot,
+                content_type=document.content_type_snapshot,
+                size_bytes=document.size_bytes_snapshot,
+                checksum_sha256=document.checksum_sha256_snapshot,
+                issue_date=document.issue_date_snapshot,
+                expiry_date=document.expiry_date_snapshot,
+                attached_at=document.attached_at,
+            )
+            for document in documents
         ],
         answered_field_ids=answered_field_ids,
         events=[
@@ -190,19 +229,14 @@ def create_application(
         )
 
     existing = db.scalar(
-        select(Application).where(
+        select(Application)
+        .where(
             Application.student_domain == OwnershipDomain.STUDENT,
             Application.student_account_id == auth.account.id,
             Application.provider_domain == scholarship.domain,
             Application.scholarship_version_id == version.id,
-            Application.status.in_(
-                [
-                    ApplicationStatus.DRAFT,
-                    ApplicationStatus.READY_FOR_STUDENT_REVIEW,
-                    ApplicationStatus.CORRECTION_REQUESTED,
-                ]
-            ),
         )
+        .order_by(Application.created_at.desc())
     )
     if existing:
         return ApplicationCreateResponse(
@@ -323,39 +357,28 @@ def update_application_answers(
             == application.application_template_id,
         )
     ).all()
-    allowed_ids = {field.id for field in fields}
-    unknown_ids = set(payload.answers) - allowed_ids
+    fields_by_id = {field.id: field for field in fields}
+    unknown_ids = set(payload.answers) - set(fields_by_id)
     if unknown_ids:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "One or more fields are invalid",
         )
 
+    invalid_keys = [
+        fields_by_id[field_id].field_key
+        for field_id, value in payload.answers.items()
+        if not field_value_is_valid(fields_by_id[field_id], value)
+    ]
+    if invalid_keys:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Invalid value for application field(s): " + ", ".join(invalid_keys),
+        )
+
     encryption_key = settings.app_secret_key.get_secret_value()
     for field_id, value in payload.answers.items():
-        serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        encrypted = func.pgp_sym_encrypt(serialized, encryption_key)
-        statement = (
-            insert(ApplicationAnswer)
-            .values(
-                application_id=application.id,
-                field_id=field_id,
-                provider_domain=application.provider_domain,
-                application_template_id=application.application_template_id,
-                encrypted_value=encrypted,
-            )
-            .on_conflict_do_update(
-                index_elements=[
-                    ApplicationAnswer.application_id,
-                    ApplicationAnswer.field_id,
-                ],
-                set_={
-                    "encrypted_value": encrypted,
-                    "updated_at": func.now(),
-                },
-            )
-        )
-        db.execute(statement)
+        upsert_encrypted_answer(db, application, field_id, value, encryption_key)
 
     application.status = ApplicationStatus.READY_FOR_STUDENT_REVIEW
     db.commit()
@@ -372,6 +395,14 @@ def submit_application(
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application was not found")
     application = row[0]
+    if application.status in {
+        ApplicationStatus.SUBMITTED,
+        ApplicationStatus.RESUBMITTED,
+        ApplicationStatus.UNDER_ORGANIZATION_REVIEW,
+        ApplicationStatus.APPROVED,
+        ApplicationStatus.REJECTED,
+    }:
+        return MessageResponse(message="Application is already in the provider queue")
     if application.status not in {
         ApplicationStatus.DRAFT,
         ApplicationStatus.READY_FOR_STUDENT_REVIEW,
@@ -382,28 +413,64 @@ def submit_application(
             "Application cannot be submitted now",
         )
 
-    required_fields = set(
+    if target_error := application_target_error(db, application):
+        raise HTTPException(status.HTTP_409_CONFLICT, target_error)
+
+    template = db.scalar(
+        select(ApplicationTemplate).where(
+            ApplicationTemplate.domain == application.provider_domain,
+            ApplicationTemplate.id == application.application_template_id,
+        )
+    )
+    if template is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The application template is no longer available",
+        )
+    fields = list(
         db.scalars(
-            select(ApplicationTemplateField.id).where(
+            select(ApplicationTemplateField)
+            .where(
                 ApplicationTemplateField.domain == application.provider_domain,
                 ApplicationTemplateField.application_template_id
                 == application.application_template_id,
-                ApplicationTemplateField.required.is_(True),
             )
+            .order_by(ApplicationTemplateField.sort_order)
         ).all()
     )
-    answered_fields = set(
-        db.scalars(
-            select(ApplicationAnswer.field_id).where(
-                ApplicationAnswer.application_id == application.id
-            )
-        ).all()
+    answers = load_decrypted_application_answers(
+        db,
+        application.id,
+        settings.app_secret_key.get_secret_value(),
     )
-    if missing := required_fields - answered_fields:
+    missing_fields = invalid_required_field_keys(fields, answers)
+    if missing_fields:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"{len(missing)} required application field(s) are incomplete",
+            "Required application field(s) are incomplete or invalid: "
+            + ", ".join(missing_fields),
         )
+
+    try:
+        document_types = required_document_types(template.required_document_types or [])
+    except ValueError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The provider template contains an invalid document requirement",
+        ) from exc
+    documents = valid_student_documents(db, auth.account.id, document_types)
+    missing_documents = [
+        document_type.value
+        for document_type in document_types
+        if document_type not in documents
+    ]
+    if missing_documents:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Required document(s) are missing or expired: "
+            + ", ".join(missing_documents),
+        )
+    attach_document_snapshots(db, application, documents)
 
     now = datetime.now(UTC)
     is_resubmission = application.status == ApplicationStatus.CORRECTION_REQUESTED
@@ -413,6 +480,7 @@ def submit_application(
         else ApplicationStatus.SUBMITTED
     )
     application.submitted_at = now
+    application.agent_submission_authorized_at = now
     db.add(
         ApplicationEvent(
             application_id=application.id,
@@ -420,14 +488,14 @@ def submit_application(
             actor_account_id=auth.account.id,
             event_type="RESUBMITTED" if is_resubmission else "SUBMITTED",
             safe_message=(
-                "Synthetic application resubmitted to the provider."
+                "Application resubmitted to the provider's ScholarSaathi queue."
                 if is_resubmission
-                else "Synthetic application submitted to the provider."
+                else "Application submitted to the provider's ScholarSaathi queue."
             ),
         )
     )
     db.commit()
-    return MessageResponse(message="Synthetic application submitted to the provider")
+    return MessageResponse(message="Application submitted to the provider queue")
 
 
 @router.get("/organizations/me/applications", response_model=list[ApplicationListItem])
