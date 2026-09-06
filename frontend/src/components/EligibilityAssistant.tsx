@@ -631,11 +631,7 @@ export function EligibilityAssistant() {
               <img src="/logo.png" alt="" />
             </div>
             <div className="ai-assistant-heading">
-              <div className="ai-assistant-title-row">
-                <h2 id="eligibility-assistant-title">ScholarSaathi</h2>
-                <span><i /> AI assistant</span>
-              </div>
-              <p>{scholarshipId ? 'Answers and applications for this scholarship' : 'Find, understand and apply for scholarships'}</p>
+              <h2 id="eligibility-assistant-title">ScholarSaathi</h2>
             </div>
             <button className="ai-icon-button" type="button" onClick={closeAssistant} aria-label="Close assistant">
               <X size={19} />
@@ -654,15 +650,8 @@ export function EligibilityAssistant() {
 
           <div className="ai-transcript" ref={transcriptRef} role="log" aria-live="polite">
             <div className="ai-welcome">
-              <span><Sparkles size={17} /></span>
-              <div>
-                <strong>{scholarshipId ? 'Ask me about this scholarship' : 'What can I help you with?'}</strong>
-                <p>
-                  {scholarshipId
-                    ? 'I answer from the provider’s published information. You can also ask me to apply for you.'
-                    : 'Tell me about your studies, ask a question, or let me find and apply for matching scholarships.'}
-                </p>
-              </div>
+              <span><Sparkles size={19} /></span>
+              <strong>Hello, how can I help you?</strong>
             </div>
 
             {turns.map((turn) => (
@@ -722,23 +711,12 @@ export function EligibilityAssistant() {
               void send(draft)
             }}
           >
-            <button
-              className={`ai-mic-button ${speech.listening ? 'is-listening' : ''}`}
-              type="button"
-              onClick={speech.listening ? speech.stop : speech.start}
-              disabled={!speech.supported || loading}
-              aria-label={speech.listening ? 'Stop listening' : 'Speak your message'}
-              aria-pressed={speech.listening}
-              title={speech.supported ? 'Speak your message' : 'Voice input is unavailable'}
-            >
-              {speech.listening ? <Square size={17} fill="currentColor" /> : <Mic size={19} />}
-            </button>
-            <label className="sr-only" htmlFor="eligibility-assistant-input">Message ScholarSaathi</label>
             <textarea
               id="eligibility-assistant-input"
               ref={inputRef}
               rows={1}
               maxLength={1200}
+              aria-label="Message ScholarSaathi"
               placeholder={speech.listening ? 'Listening…' : scholarshipId ? 'Ask or say “apply for me”…' : 'Message ScholarSaathi…'}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -750,11 +728,21 @@ export function EligibilityAssistant() {
               }}
               disabled={loading}
             />
+            <button
+              className={`ai-mic-button ${speech.listening ? 'is-listening' : ''}`}
+              type="button"
+              onClick={speech.listening ? speech.stop : speech.start}
+              disabled={!speech.supported || loading}
+              aria-label={speech.listening ? 'Stop listening' : 'Speak your message'}
+              aria-pressed={speech.listening}
+              title={speech.supported ? 'Speak your message' : 'Voice input is unavailable'}
+            >
+              {speech.listening ? <Square size={17} fill="currentColor" /> : <Mic size={19} />}
+            </button>
             <button className="ai-send-button" type="submit" disabled={!canSend} aria-label="Send message">
               <Send size={18} />
             </button>
           </form>
-          <p className="ai-privacy-note">Do not share Aadhaar, PAN, bank details, passwords or OTPs.</p>
         </aside>
       )}
 
@@ -767,7 +755,7 @@ export function EligibilityAssistant() {
         aria-expanded={open}
         aria-controls="eligibility-assistant-panel"
       >
-        {open ? <X size={22} /> : <><Sparkles size={20} /><span>Ask ScholarSaathi</span></>}
+        {open ? <X size={22} /> : <img src="/ai-logo.png" alt="" className="ai-launcher-logo" />}
       </button>
     </div>
   )
