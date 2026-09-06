@@ -47,7 +47,7 @@ h2 { letter-spacing: -0.04em; }
 .brand > span:last-child { display: grid; }
 .brand strong { font-size: 1.05rem; letter-spacing: -.03em; }
 .brand small { color: var(--muted); font-size: .66rem; letter-spacing: .035em; }
-.topnav { display: flex; align-items: center; gap: 1.8rem; font-size: .86rem; font-weight: 600; }
+.topnav { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 1.8rem; font-size: .86rem; font-weight: 600; }
 .topnav > a { color: #48544e; }
 .topnav > a.active { color: var(--green); }
 .nav-cta { padding: .72rem 1.05rem; color: white !important; background: var(--ink); border-radius: .6rem; }
@@ -386,7 +386,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 
 @media (max-width: 760px) {
   .section-pad, .topbar, .footer { width: min(100% - 2rem, 1240px); }
-  .topbar { height: 70px; }.menu-button { display: grid; }.topnav { position: absolute; top: 64px; right: 0; display: none; width: 230px; padding: 1rem; align-items: stretch; background: white; border: 1px solid var(--line); border-radius: .8rem; box-shadow: var(--shadow); flex-direction: column; gap: .9rem; }.topnav.open { display: flex; }
+  .topbar { height: 70px; }.menu-button { display: grid; }.topnav { position: absolute; top: 64px; left: auto; transform: none; right: 0; display: none; width: 230px; padding: 1rem; align-items: stretch; background: white; border: 1px solid var(--line); border-radius: .8rem; box-shadow: var(--shadow); flex-direction: column; gap: .9rem; }.topnav.open { display: flex; }
   .hero { min-height: 0; padding-block: 3.5rem; }.hero-copy h1 { font-size: 3.3rem; }.hero-visual { min-height: 430px; }.provider-node { min-width: 83px; padding: .5rem; }.student-result-card { bottom: 3%; }
   .problem-band, .provider-section { padding: 4rem 1rem; }.problem-grid { grid-template-columns: 1fr 1fr; }.problem-grid article { min-height: 140px; }
   .journey-grid { grid-template-columns: 1fr; }.journey-grid article { min-height: 230px; border-right: 0; border-bottom: 1px solid var(--line); }
