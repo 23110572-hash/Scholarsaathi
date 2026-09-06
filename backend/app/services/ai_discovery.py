@@ -277,6 +277,22 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
                     if version.application_deadline_at
                     else None
                 ),
+                "benefit": {
+                    "summary": version.benefit_summary,
+                    "minimum": (
+                        float(version.benefit_amount_min)
+                        if version.benefit_amount_min is not None
+                        else None
+                    ),
+                    "maximum": (
+                        float(version.benefit_amount_max)
+                        if version.benefit_amount_max is not None
+                        else None
+                    ),
+                },
+                "eligibility_rules": version.eligibility_rules_json,
+                "document_requirements": version.document_requirements_json,
+                "application_process": version.application_process_json,
                 "evidence": evidence,
             }
         )

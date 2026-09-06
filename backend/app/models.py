@@ -170,9 +170,7 @@ class Account(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     login_identifier: Mapped[str] = mapped_column(CITEXT(), nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     realm: Mapped[AccountRealm] = mapped_column(
@@ -211,9 +209,7 @@ class AuthSession(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -350,9 +346,7 @@ class Organization(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(120), nullable=False)
     legal_name: Mapped[str] = mapped_column(String(240), nullable=False)
     display_name: Mapped[str] = mapped_column(String(180), nullable=False)
@@ -399,14 +393,10 @@ class OrganizationMember(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    role: Mapped[MemberRole] = mapped_column(
-        _enum(MemberRole, "member_role"), nullable=False
-    )
+    role: Mapped[MemberRole] = mapped_column(_enum(MemberRole, "member_role"), nullable=False)
     status: Mapped[MemberStatus] = mapped_column(
         _enum(MemberStatus, "member_status"),
         nullable=False,
@@ -440,18 +430,14 @@ class Scholarship(Base):
         UniqueConstraint(
             "domain", "organization_id", "slug", name="v2_uq_organization_scholarship_slug"
         ),
-        UniqueConstraint(
-            "domain", "organization_id", "id", name="v2_uq_scholarship_owner"
-        ),
+        UniqueConstraint("domain", "organization_id", "id", name="v2_uq_scholarship_owner"),
         {"schema": "public", "postgresql_partition_by": "LIST (domain)"},
     )
 
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     slug: Mapped[str] = mapped_column(String(160), nullable=False)
     current_published_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
@@ -505,9 +491,7 @@ class ScholarshipVersion(Base):
             "id",
             name="v2_uq_version_scholarship_owner",
         ),
-        UniqueConstraint(
-            "domain", "organization_id", "id", name="v2_uq_version_owner"
-        ),
+        UniqueConstraint("domain", "organization_id", "id", name="v2_uq_version_owner"),
         CheckConstraint(
             "application_deadline_at IS NULL OR application_opens_at IS NULL "
             "OR application_deadline_at >= application_opens_at",
@@ -519,9 +503,7 @@ class ScholarshipVersion(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -530,10 +512,19 @@ class ScholarshipVersion(Base):
     knowledge_summary: Mapped[str] = mapped_column(Text, nullable=False)
     academic_year: Mapped[str] = mapped_column(String(20), nullable=False)
     scope: Mapped[str] = mapped_column(String(40), nullable=False)
-    applicable_state_codes: Mapped[list[str]] = mapped_column(ARRAY(String(2)))
+    applicable_state_codes: Mapped[list[str]] = mapped_column(ARRAY(String(3)))
     education_levels: Mapped[list[str]] = mapped_column(ARRAY(String(60)))
     course_families: Mapped[list[str]] = mapped_column(ARRAY(String(80)))
     category_tags: Mapped[list[str]] = mapped_column(ARRAY(String(80)))
+    eligibility_rules_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    document_requirements_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    application_process_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
     benefit_summary: Mapped[str] = mapped_column(Text, nullable=False)
     benefit_amount_min: Mapped[float | None] = mapped_column(Numeric(12, 2))
     benefit_amount_max: Mapped[float | None] = mapped_column(Numeric(12, 2))
@@ -576,7 +567,10 @@ class SourceDocument(Base):
             name="v2_fk_source_uploader",
         ),
         UniqueConstraint(
-            "domain", "organization_id", "scholarship_version_id", "id",
+            "domain",
+            "organization_id",
+            "scholarship_version_id",
+            "id",
             name="v2_uq_source_version_owner",
         ),
         {"schema": "public", "postgresql_partition_by": "LIST (domain)"},
@@ -585,9 +579,7 @@ class SourceDocument(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     display_name: Mapped[str] = mapped_column(String(240), nullable=False)
@@ -633,7 +625,10 @@ class KnowledgeChunk(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint(
-            "domain", "organization_id", "scholarship_version_id", "id",
+            "domain",
+            "organization_id",
+            "scholarship_version_id",
+            "id",
             name="v2_uq_chunk_version_owner",
         ),
         Index("v2_ix_knowledge_chunks_search_vector", "search_vector", postgresql_using="gin"),
@@ -643,9 +638,7 @@ class KnowledgeChunk(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     source_document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -691,9 +684,7 @@ class AIExtractionDraft(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     model_identifier: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -732,25 +723,26 @@ class ApplicationTemplate(Base):
             name="v2_fk_template_confirmer",
         ),
         UniqueConstraint(
-            "domain", "scholarship_version_id", "template_version",
+            "domain",
+            "scholarship_version_id",
+            "template_version",
             name="v2_uq_application_template_version",
         ),
         UniqueConstraint(
-            "domain", "organization_id", "scholarship_version_id", "id",
+            "domain",
+            "organization_id",
+            "scholarship_version_id",
+            "id",
             name="v2_uq_template_version_owner",
         ),
-        UniqueConstraint(
-            "domain", "id", name="v2_uq_template_domain_id"
-        ),
+        UniqueConstraint("domain", "id", name="v2_uq_template_domain_id"),
         {"schema": "public", "postgresql_partition_by": "LIST (domain)"},
     )
 
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     template_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -759,7 +751,7 @@ class ApplicationTemplate(Base):
         JSONB,
         nullable=False,
         default=lambda: ["INCOME_CERTIFICATE", "CURRENT_MARKSHEET"],
-        server_default=text("'[\"INCOME_CERTIFICATE\", \"CURRENT_MARKSHEET\"]'::jsonb"),
+        server_default=text('\'["INCOME_CERTIFICATE", "CURRENT_MARKSHEET"]\'::jsonb'),
     )
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
@@ -794,11 +786,15 @@ class ApplicationTemplateField(Base):
             name="v2_fk_field_source_chunk",
         ),
         UniqueConstraint(
-            "domain", "application_template_id", "field_key",
+            "domain",
+            "application_template_id",
+            "field_key",
             name="v2_uq_application_template_field_key",
         ),
         UniqueConstraint(
-            "domain", "application_template_id", "id",
+            "domain",
+            "application_template_id",
+            "id",
             name="v2_uq_field_template_id",
         ),
         {"schema": "public", "postgresql_partition_by": "LIST (domain)"},
@@ -807,9 +803,7 @@ class ApplicationTemplateField(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     scholarship_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     application_template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -863,9 +857,7 @@ class SavedScholarship(Base):
 class StudentDocument(Base):
     __tablename__ = "student_documents"
     __table_args__ = (
-        CheckConstraint(
-            "student_domain = 'STUDENT'", name="v4_ck_student_document_domain"
-        ),
+        CheckConstraint("student_domain = 'STUDENT'", name="v4_ck_student_document_domain"),
         CheckConstraint("size_bytes > 0", name="v4_ck_student_document_size"),
         CheckConstraint(
             "expiry_date IS NULL OR issue_date IS NULL OR expiry_date >= issue_date",
@@ -877,9 +869,7 @@ class StudentDocument(Base):
             name="v4_fk_student_document_owner",
             ondelete="CASCADE",
         ),
-        UniqueConstraint(
-            "student_account_id", "id", name="v4_uq_student_document_owner_id"
-        ),
+        UniqueConstraint("student_account_id", "id", name="v4_uq_student_document_owner_id"),
         UniqueConstraint("storage_key", name="v4_uq_student_document_storage_key"),
         Index(
             "v4_ix_student_documents_owner_status",
@@ -889,9 +879,7 @@ class StudentDocument(Base):
         {"schema": "student"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"),
         nullable=False,
@@ -964,12 +952,12 @@ class Application(Base):
             name="v2_fk_application_template_owner",
         ),
         UniqueConstraint(
-            "id", "provider_domain", "application_template_id",
+            "id",
+            "provider_domain",
+            "application_template_id",
             name="v2_uq_application_template_context",
         ),
-        UniqueConstraint(
-            "id", "student_account_id", name="v4_uq_application_student_context"
-        ),
+        UniqueConstraint("id", "student_account_id", name="v4_uq_application_student_context"),
         UniqueConstraint(
             "student_account_id",
             "provider_domain",
@@ -979,9 +967,7 @@ class Application(Base):
         {"schema": "student"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"),
         nullable=False,
@@ -1003,9 +989,7 @@ class Application(Base):
         Boolean, nullable=False, default=False, server_default=text("false")
     )
     consent_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    agent_submission_authorized_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    agent_submission_authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -1081,9 +1065,7 @@ class ApplicationDocument(Base):
         {"schema": "student"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     student_account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     student_document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -1185,9 +1167,7 @@ class ApplicationIntent(Base):
         {"schema": "student"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"),
         nullable=False,
@@ -1246,9 +1226,7 @@ class ApplicationEvent(Base):
         {"schema": "student"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     application_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     actor_domain: Mapped[OwnershipDomain | None] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain")
@@ -1280,9 +1258,7 @@ class AuditEvent(Base):
     domain: Mapped[OwnershipDomain] = mapped_column(
         _enum(OwnershipDomain, "ownership_domain"), primary_key=True
     )
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     actor_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     organization_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     action: Mapped[str] = mapped_column(String(120), nullable=False)

@@ -45,7 +45,9 @@ function formatDeadline(value: string | null): { date: string; urgency: string; 
 }
 
 function formatCoverage(scholarship: Scholarship): string {
-  if (scholarship.applicable_state_codes.includes('ALL')) return 'All India'
+  if (scholarship.scope.startsWith('NATIONAL') || scholarship.applicable_state_codes.includes('ALL')) {
+    return 'ALL'
+  }
   return scholarship.applicable_state_codes.join(', ')
 }
 

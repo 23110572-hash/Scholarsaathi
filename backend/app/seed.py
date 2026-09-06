@@ -384,19 +384,19 @@ def seed_database() -> None:
     session = SessionLocal()
 
     try:
-        catalog_result = reconcile_reference_catalog(
-            session,
-            hasher.hash(DEMO_PASSWORD),
-        )
         already_seeded = session.scalar(
             select(Account.id).where(Account.login_identifier == DEMO_STUDENT_LOGIN)
         )
         if already_seeded:
+            catalog_result = reconcile_reference_catalog(
+                session,
+                hasher.hash(DEMO_PASSWORD),
+            )
             session.commit()
             print(
-                "ScholarSaathi base seed already exists; reference catalog reconciled "
-                f"({catalog_result['removed_broken_scholarships']} broken removed, "
-                f"{catalog_result['reference_scholarships']} references ready)."
+                "ScholarSaathi base seed already exists; clean catalog reconciled "
+                f"({catalog_result['removed_legacy_scholarships']} legacy scholarships removed, "
+                f"{catalog_result['catalog_scholarships']} schemes ready)."
             )
             return
 
@@ -806,9 +806,15 @@ def seed_database() -> None:
             )
         )
 
+        catalog_result = reconcile_reference_catalog(
+            session,
+            hasher.hash(DEMO_PASSWORD),
+        )
         session.commit()
-        print("ScholarSaathi synthetic PostgreSQL dataset created.")
-        print("All organizations, scholarships, sources, and applications are synthetic.")
+        print(
+            "ScholarSaathi PostgreSQL demonstration dataset created "
+            f"with {catalog_result['catalog_scholarships']} complete schemes."
+        )
     except Exception:
         session.rollback()
         raise

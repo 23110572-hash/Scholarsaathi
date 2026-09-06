@@ -165,9 +165,13 @@ class ScholarshipCard(APIModel):
     education_levels: list[str]
     course_families: list[str]
     category_tags: list[str]
+    eligibility_rules: dict[str, Any]
+    document_requirements: list[dict[str, Any]]
+    application_process: dict[str, Any]
     benefit_summary: str
     benefit_amount_min: float | None
     benefit_amount_max: float | None
+    application_opens_at: datetime | None
     application_deadline_at: datetime | None
     official_source_url: str
     last_provider_confirmed_at: datetime

@@ -89,7 +89,9 @@ export function ScholarshipDetailPage() {
   if (loading) return <main className="screen-center"><div className="loader" /><p>Loading scholarship…</p></main>
   if (!scholarship) return <main className="screen-center"><h1>Scholarship unavailable</h1><p>{loadError}</p><Link className="button button-primary" to="/scholarships">Return to scholarships</Link></main>
 
-  const coverage = scholarship.applicable_state_codes.includes('ALL') ? 'All India' : scholarship.applicable_state_codes.join(', ')
+  const coverage = scholarship.scope.startsWith('NATIONAL') || scholarship.applicable_state_codes.includes('ALL')
+    ? 'ALL'
+    : scholarship.applicable_state_codes.join(', ')
   const applicationReady = Boolean(scholarship.application_template_id)
   const studentSignedIn = user?.realm === 'STUDENT'
 
@@ -109,7 +111,7 @@ export function ScholarshipDetailPage() {
                 <ChatIcon /> Ask a doubt
               </button>
               <button className="button button-secondary" type="button" disabled={saving || authLoading} onClick={() => void saveScholarship()}><BookmarkIcon /> {saving ? 'Saving…' : studentSignedIn ? 'Save scholarship' : 'Sign in to save'}</button>
-              <a className="inline-link" href={scholarship.official_source_url} target="_blank" rel="noreferrer">Open source page <ArrowIcon /></a>
+              <a className="inline-link" href="#scheme-guidelines">View scheme guidelines <ArrowIcon /></a>
             </div>
             {notice && <p className="action-notice">{notice}</p>}
             {actionError && <p className="form-error" role="alert">{actionError}</p>}
@@ -167,9 +169,9 @@ export function ScholarshipDetailPage() {
         </div>
       </section>
 
-      <section className="detail-content detail-content-wide section-pad">
+      <section id="scheme-guidelines" className="detail-content detail-content-wide section-pad">
         <div className="evidence-column">
-          <div className="section-heading left-heading"><h2>Scholarship information</h2><p>Read the sections supplied for this scholarship.</p></div>
+          <div className="section-heading left-heading"><h2>Scholarship information</h2><p>Read the eligibility, documents, registration and selection details for this scholarship.</p></div>
           <div className="evidence-list">
             {scholarship.evidence.map((item, index) => (
               <article key={item.citation_id} id={item.citation_id}>
@@ -179,8 +181,7 @@ export function ScholarshipDetailPage() {
             ))}
           </div>
           <div className="provider-contact-row">
-            <a className="button button-secondary source-button" href={scholarship.official_source_url} target="_blank" rel="noreferrer">Open source page <ArrowIcon /></a>
-            {scholarship.provider_helpdesk_url && <a className="inline-link" href={scholarship.provider_helpdesk_url} target="_blank" rel="noreferrer">Contact provider <ArrowIcon /></a>}
+            <button className="button button-secondary source-button" type="button" onClick={() => openAssistant()}><ChatIcon /> Ask about this scholarship</button>
           </div>
           {scholarship.application_fields.length > 0 && (
             <section className="application-preview"><h2>Application requirements</h2><p>Review the information requested before starting.</p><div>{scholarship.application_fields.map((field) => <article key={field.id}><span>{formatToken(field.field_type)}</span><strong>{field.label}</strong><small>{field.required ? 'Required' : 'Optional'}{field.help_text ? ` · ${field.help_text}` : ''}</small></article>)}</div></section>

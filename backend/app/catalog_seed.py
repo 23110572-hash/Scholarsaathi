@@ -5,13 +5,12 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.catalog_data import (
-    CONTENT_REPHRASED_NOTICE,
-    REFERENCE_ORGANIZATION_SPECS,
-    REFERENCE_SCHOLARSHIP_SPECS,
+    CATALOG_ORGANIZATION_SPECS,
+    CATALOG_SCHOLARSHIP_SPECS,
 )
 from app.models import (
     Account,
@@ -28,7 +27,6 @@ from app.models import (
     MemberStatus,
     Organization,
     OrganizationMember,
-    OrganizationType,
     OwnershipDomain,
     PublicationStatus,
     SavedScholarship,
@@ -38,28 +36,91 @@ from app.models import (
     SourceDocument,
     ownership_domain_for_type,
 )
-from app.services.application_templates import (
-    DEFAULT_FIELD_DEFINITIONS,
-    DEFAULT_REQUIRED_DOCUMENT_TYPES,
-)
+from app.services.application_templates import DEFAULT_FIELD_DEFINITIONS
 
 SEED_NAMESPACE = uuid.UUID("52b9b24a-9e5f-4e19-81b1-4da8245b9ae1")
-REFERENCE_CATALOG_AT = datetime(2026, 8, 29, 12, tzinfo=UTC)
-REFERENCE_STATUS = "PUBLIC_SOURCE_REFERENCE"
+CATALOG_REVISION = "nsp-demo-catalog-v2"
+CATALOG_PUBLISHED_AT = datetime(2026, 8, 29, 12, tzinfo=UTC)
+CATALOG_MARKER_ID = uuid.uuid5(SEED_NAMESPACE, f"catalog-marker:{CATALOG_REVISION}")
+OWNER_CONFIRMED = "OWNER_CONFIRMED"
 
-# Exact records created by the removed add_10_scholarships.py helper. Both the ID and
-# slug must match before cleanup, so similarly named user/provider records are untouched.
-BROKEN_HELPER_TARGETS = {
-    uuid.UUID("6e226c05-cae7-589b-b146-e13bf7b54956"): "central-demo-scholarship-1-2026",
-    uuid.UUID("ba0e7625-05ab-577c-a4e7-19f96133a816"): "central-demo-scholarship-2-2026",
-    uuid.UUID("318a16f7-09f7-5f7d-b603-c1f0b4ce4422"): "central-demo-scholarship-3-2026",
-    uuid.UUID("ef6da622-571a-52b7-bdf2-1ae9e7afc6ab"): "central-demo-scholarship-4-2026",
-    uuid.UUID("59a905c3-9ce6-5ebe-b8ed-f4598a1c7524"): "central-demo-scholarship-5-2026",
-    uuid.UUID("fd2e68c8-27fd-54b6-91af-12a134a982d4"): "central-demo-scholarship-6-2026",
-    uuid.UUID("b6e86160-b25e-5ba5-983c-8f67cd851e53"): "central-demo-scholarship-7-2026",
-    uuid.UUID("70053608-d7f9-5177-8af5-bd1583b91b43"): "central-demo-scholarship-8-2026",
-    uuid.UUID("b5d75df2-8dcc-5714-aaad-e501e428f0c5"): "central-demo-scholarship-9-2026",
-    uuid.UUID("7329a64a-e4ba-5996-843c-3de028506170"): "central-demo-scholarship-10-2026",
+BROKEN_HELPER_SLUGS = tuple(f"central-demo-scholarship-{number}-2026" for number in range(1, 11))
+
+LEGACY_REFERENCE_SLUGS = (
+    "central-sector-scholarship-college-university-students",
+    "national-means-cum-merit-scholarship-scheme",
+    "aicte-pragati-scholarship-girl-students",
+    "aicte-saksham-scholarship-students-with-disabilities",
+    "aicte-swanath-scholarship-scheme",
+    "ishan-uday-special-scholarship-north-eastern-region",
+    "pg-indira-gandhi-scholarship-single-girl-child",
+    "pg-scholarship-university-rank-holders",
+    "aicte-postgraduate-scholarship-gate-gpat-ceed",
+    "prime-ministers-scholarship-capf-assam-rifles",
+    "prime-ministers-scholarship-rpf-rpsf",
+    "pm-yasasvi-top-class-school-education",
+    "pm-yasasvi-top-class-college-education",
+    "pm-yasasvi-post-matric-obc-ebc-dnt",
+    "post-matric-scholarship-scheduled-caste-students",
+    "top-class-education-scheduled-caste-students",
+    "national-overseas-scholarship-scheduled-caste-others",
+    "national-fellowship-scholarship-higher-education-st",
+    "national-overseas-scholarship-st-students",
+    "top-class-education-students-with-disabilities",
+    "west-bengal-swami-vivekananda-merit-cum-means",
+    "odisha-e-medhabruti-scholarship",
+    "gujarat-mukhyamantri-yuva-swavalamban-yojana",
+    "maharashtra-rajarshi-shahu-maharaj-shikshan-shulkh-shishyavrutti",
+    "karnataka-ssp-post-matric-scholarship",
+    "kerala-state-merit-scholarship",
+    "tamil-nadu-bc-mbc-dnc-post-matric-scholarship",
+    "telangana-epass-post-matric-scholarship",
+    "andhra-pradesh-jnanabhumi-post-matric-scholarship",
+    "madhya-pradesh-mukhyamantri-medhavi-vidyarthi-yojana",
+    "rajasthan-chief-minister-higher-education-scholarship",
+    "uttar-pradesh-post-matric-scholarship",
+    "bihar-post-matric-scholarship",
+    "jharkhand-ekalyan-post-matric-scholarship",
+    "haryana-har-chhatravratti-post-matric-scholarship",
+    "punjab-dr-ambedkar-post-matric-scholarship",
+    "himachal-pradesh-kalpana-chawla-chhatravriti",
+    "assam-combined-merit-degree-scholarship",
+    "uttarakhand-post-matric-scholarship",
+    "chhattisgarh-post-matric-scholarship",
+    "reliance-foundation-undergraduate-scholarships",
+    "reliance-foundation-postgraduate-scholarships",
+    "sbi-platinum-jubilee-asha-scholarship",
+    "hdfc-bank-parivartan-ecss-programme",
+    "kotak-kanya-scholarship",
+    "tata-capital-pankh-scholarship-programme",
+    "santoor-womens-scholarship",
+    "foundation-for-excellence-scholarship",
+    "colgate-keep-india-smiling-foundation-scholarship",
+    "loreal-india-for-young-women-in-science-scholarship",
+)
+
+LEGACY_ORGANIZATION_SLUGS = {
+    "central": "national-education-support-directorate-demo",
+    "odisha": "odisha-student-opportunity-mission-demo",
+    "aarohan": "aarohan-future-skills-demo",
+    "udaan": "udaan-learning-trust-demo",
+    **{
+        str(spec["key"]): f"{spec['key']}-scholarship-reference"
+        for spec in CATALOG_ORGANIZATION_SPECS
+        if spec["key"] not in {"central", "odisha", "aarohan", "udaan"}
+    },
+}
+
+LEGACY_PUBLISHER_LOGINS = {
+    "central": "central.publisher@demo.scholarsaathi.local",
+    "odisha": "odisha.publisher@demo.scholarsaathi.local",
+    "aarohan": "aarohan.publisher@demo.scholarsaathi.local",
+    "udaan": "udaan.publisher@demo.scholarsaathi.local",
+    **{
+        str(spec["key"]): f"{spec['key']}.catalog@demo.scholarsaathi.local"
+        for spec in CATALOG_ORGANIZATION_SPECS
+        if spec["key"] not in {"central", "odisha", "aarohan", "udaan"}
+    },
 }
 
 _GENERIC_COURSE_MARKERS = {
@@ -80,94 +141,90 @@ def _set_values(instance: Any, **values: Any) -> None:
         setattr(instance, key, value)
 
 
-def _remove_broken_helper_records(session: Session) -> int:
-    exact_conditions = [
-        and_(Scholarship.id == scholarship_id, Scholarship.slug == slug)
-        for scholarship_id, slug in BROKEN_HELPER_TARGETS.items()
-    ]
-    target_ids = list(
-        session.scalars(
-            select(Scholarship.id).where(
-                Scholarship.domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-                or_(*exact_conditions),
-            )
-        )
+def _as_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value)
+
+
+def _clean_legacy_catalog_once(session: Session) -> int:
+    marker = session.get(
+        AuditEvent,
+        (OwnershipDomain.CENTRAL_GOVERNMENT, CATALOG_MARKER_ID),
     )
-    if not target_ids:
+    if marker is not None:
         return 0
 
+    target_slugs = {
+        *(str(spec["slug"]) for spec in CATALOG_SCHOLARSHIP_SPECS),
+        *LEGACY_REFERENCE_SLUGS,
+        *BROKEN_HELPER_SLUGS,
+    }
+    scholarships = list(
+        session.scalars(select(Scholarship).where(Scholarship.slug.in_(target_slugs)))
+    )
+    if not scholarships:
+        return 0
+
+    scholarship_ids = [scholarship.id for scholarship in scholarships]
     version_ids = list(
         session.scalars(
             select(ScholarshipVersion.id).where(
-                ScholarshipVersion.domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-                ScholarshipVersion.scholarship_id.in_(target_ids),
+                ScholarshipVersion.scholarship_id.in_(scholarship_ids)
             )
         )
     )
 
-    # Remove only dependencies that prevent deleting these exact scholarship roots.
     session.execute(
-        delete(ApplicationIntent).where(
-            ApplicationIntent.scholarship_domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-            ApplicationIntent.scholarship_id.in_(target_ids),
-        )
+        delete(ApplicationIntent).where(ApplicationIntent.scholarship_id.in_(scholarship_ids))
     )
     if version_ids:
         session.execute(
-            delete(Application).where(
-                Application.provider_domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-                Application.scholarship_version_id.in_(version_ids),
+            delete(Application).where(Application.scholarship_version_id.in_(version_ids))
+        )
+        # Template fields also point to evidence chunks without ON DELETE CASCADE.
+        # Remove them explicitly before deleting scholarship versions/chunks.
+        session.execute(
+            delete(ApplicationTemplateField).where(
+                ApplicationTemplateField.scholarship_version_id.in_(version_ids)
             )
         )
     session.execute(
-        delete(SavedScholarship).where(
-            SavedScholarship.scholarship_domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-            SavedScholarship.scholarship_id.in_(target_ids),
-        )
+        delete(SavedScholarship).where(SavedScholarship.scholarship_id.in_(scholarship_ids))
     )
+    resource_ids = [*scholarship_ids, *version_ids]
+    if resource_ids:
+        session.execute(delete(AuditEvent).where(AuditEvent.resource_id.in_(resource_ids)))
     session.execute(
         update(Scholarship)
-        .where(
-            Scholarship.domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-            Scholarship.id.in_(target_ids),
-        )
+        .where(Scholarship.id.in_(scholarship_ids))
         .values(current_published_version_id=None)
     )
     session.flush()
-    session.execute(
-        delete(Scholarship).where(
-            Scholarship.domain == OwnershipDomain.CENTRAL_GOVERNMENT,
-            Scholarship.id.in_(target_ids),
-        )
-    )
+    session.execute(delete(Scholarship).where(Scholarship.id.in_(scholarship_ids)))
     session.flush()
-    return len(target_ids)
+    return len(scholarships)
 
 
-def _scope_for_type(organization_type: OrganizationType) -> str:
-    if organization_type == OrganizationType.CENTRAL_GOVERNMENT:
-        return "NATIONAL"
-    if organization_type == OrganizationType.STATE_GOVERNMENT:
-        return "STATE"
-    if organization_type == OrganizationType.PRIVATE_COMPANY:
-        return "NATIONAL_PRIVATE"
-    return "NATIONAL_NGO"
-
-
-def _reference_chunks(spec: dict[str, Any]) -> list[tuple[str, str]]:
+def _scheme_chunks(spec: dict[str, Any]) -> list[tuple[str, str]]:
+    opens_at = _as_datetime(spec["opens_at"])
+    deadline_at = _as_datetime(spec["deadline_at"])
+    document_names = ", ".join(
+        document.replace("_", " ").title() for document in spec["required_documents"]
+    )
     return [
-        ("Overview", spec["summary"]),
         ("Eligibility", spec["eligibility"]),
-        ("Benefit", spec["benefit"]),
+        ("Scholarship benefit", spec["benefit"]),
         (
-            "Official source and application guidance",
-            (
-                f"{CONTENT_REPHRASED_NOTICE} This is a public-source reference entry; "
-                "the provider has not onboarded or confirmed it in ScholarSaathi. "
-                "Application dates and procedures can change, so use the official source: "
-                f"{spec['official_source_url']}"
-            ),
+            "Required documents",
+            f"The application requires: {document_names}. All documents must be clear, "
+            "current and linked to the applying student's profile.",
         ),
+        (
+            "Registration schedule",
+            f"Registration opens on {opens_at:%d %B %Y} and the last date to submit is "
+            f"{deadline_at:%d %B %Y} at {deadline_at:%H:%M} UTC.",
+        ),
+        ("Application process", " ".join(spec["application_steps"])),
+        ("Selection and renewal", " ".join(spec["selection_steps"])),
     ]
 
 
@@ -178,29 +235,32 @@ def _course_options(spec: dict[str, Any]) -> list[str] | None:
     return courses
 
 
+def _state_options(spec: dict[str, Any]) -> list[str] | None:
+    states = list(spec["states"])
+    return None if states == ["ALL"] else states
+
+
 def reconcile_reference_catalog(
     session: Session,
     password_hash: str,
 ) -> dict[str, int]:
-    """Remove the exact broken helper rows and idempotently reconcile 50 references.
+    """Rebuild and then idempotently reconcile the complete NSP demonstration catalog."""
 
-    The caller owns the transaction. Reference entries remain synthetic internally because
-    their real providers have not onboarded; public text always points to the official source.
-    """
-
-    removed_count = _remove_broken_helper_records(session)
-    organization_specs = {str(spec["key"]): spec for spec in REFERENCE_ORGANIZATION_SPECS}
+    removed_count = _clean_legacy_catalog_once(session)
+    organization_specs = {str(spec["key"]): spec for spec in CATALOG_ORGANIZATION_SPECS}
 
     account_expected_ids = {
-        key: stable_id(f"reference:account:publisher:{key}") for key in organization_specs
+        key: stable_id(f"{CATALOG_REVISION}:account:publisher:{key}") for key in organization_specs
     }
-    publisher_logins = [str(spec["publisher_login"]) for spec in REFERENCE_ORGANIZATION_SPECS]
+    desired_logins = [str(spec["publisher_login"]) for spec in CATALOG_ORGANIZATION_SPECS]
     existing_accounts = list(
         session.scalars(
             select(Account).where(
                 or_(
                     Account.id.in_(list(account_expected_ids.values())),
-                    Account.login_identifier.in_(publisher_logins),
+                    Account.login_identifier.in_(
+                        [*desired_logins, *LEGACY_PUBLISHER_LOGINS.values()]
+                    ),
                 )
             )
         )
@@ -213,16 +273,17 @@ def reconcile_reference_catalog(
 
     for key, spec in organization_specs.items():
         domain = ownership_domain_for_type(spec["type"])
-        login = str(spec["publisher_login"])
-        expected_id = account_expected_ids[key]
-        account = accounts_by_id.get((domain, expected_id)) or accounts_by_login.get(
-            (domain, login.lower())
+        desired_login = str(spec["publisher_login"])
+        account = (
+            accounts_by_id.get((domain, account_expected_ids[key]))
+            or accounts_by_login.get((domain, desired_login.lower()))
+            or accounts_by_login.get((domain, LEGACY_PUBLISHER_LOGINS[key].lower()))
         )
         if account is None:
             account = Account(
                 domain=domain,
-                id=expected_id,
-                login_identifier=login,
+                id=account_expected_ids[key],
+                login_identifier=desired_login,
                 password_hash=password_hash,
                 realm=AccountRealm.ORGANIZATION_MEMBER,
                 status=AccountStatus.ACTIVE,
@@ -231,7 +292,7 @@ def reconcile_reference_catalog(
         else:
             _set_values(
                 account,
-                login_identifier=login,
+                login_identifier=desired_login,
                 realm=AccountRealm.ORGANIZATION_MEMBER,
                 status=AccountStatus.ACTIVE,
             )
@@ -239,15 +300,15 @@ def reconcile_reference_catalog(
     session.flush()
 
     organization_expected_ids = {
-        key: stable_id(f"reference:organization:{key}") for key in organization_specs
+        key: stable_id(f"{CATALOG_REVISION}:organization:{key}") for key in organization_specs
     }
-    organization_slugs = [str(spec["slug"]) for spec in REFERENCE_ORGANIZATION_SPECS]
+    desired_slugs = [str(spec["slug"]) for spec in CATALOG_ORGANIZATION_SPECS]
     existing_organizations = list(
         session.scalars(
             select(Organization).where(
                 or_(
                     Organization.id.in_(list(organization_expected_ids.values())),
-                    Organization.slug.in_(organization_slugs),
+                    Organization.slug.in_([*desired_slugs, *LEGACY_ORGANIZATION_SLUGS.values()]),
                 )
             )
         )
@@ -264,36 +325,49 @@ def reconcile_reference_catalog(
 
     for key, spec in organization_specs.items():
         domain = ownership_domain_for_type(spec["type"])
-        expected_id = organization_expected_ids[key]
-        slug = str(spec["slug"])
-        organization = organizations_by_id.get((domain, expected_id)) or organizations_by_slug.get(
-            (domain, slug)
+        desired_slug = str(spec["slug"])
+        organization = (
+            organizations_by_id.get((domain, organization_expected_ids[key]))
+            or organizations_by_slug.get((domain, desired_slug))
+            or organizations_by_slug.get((domain, LEGACY_ORGANIZATION_SLUGS[key]))
         )
         if organization is None:
-            organization = Organization(domain=domain, id=expected_id, slug=slug)
+            organization = Organization(
+                domain=domain,
+                id=organization_expected_ids[key],
+                slug=desired_slug,
+                legal_name=spec["legal_name"],
+                display_name=spec["display_name"],
+                type=spec["type"],
+                jurisdiction_state_code=spec["state"],
+                is_synthetic=True,
+            )
             session.add(organization)
-        _set_values(
-            organization,
-            slug=slug,
-            legal_name=spec["legal_name"],
-            display_name=spec["display_name"],
-            type=spec["type"],
-            jurisdiction_state_code=spec["state"],
-            is_synthetic=True,
-        )
+        else:
+            _set_values(
+                organization,
+                slug=desired_slug,
+                legal_name=spec["legal_name"],
+                display_name=spec["display_name"],
+                type=spec["type"],
+                jurisdiction_state_code=spec["state"],
+                is_synthetic=True,
+            )
         organizations_by_key[key] = organization
     session.flush()
 
     member_expected_ids = {
-        key: stable_id(f"reference:organization-member:{key}:owner") for key in organization_specs
+        key: stable_id(f"{CATALOG_REVISION}:organization-member:{key}:owner")
+        for key in organization_specs
     }
-    account_ids = [account.id for account in accounts_by_key.values()]
     existing_members = list(
         session.scalars(
             select(OrganizationMember).where(
                 or_(
                     OrganizationMember.id.in_(list(member_expected_ids.values())),
-                    OrganizationMember.account_id.in_(account_ids),
+                    OrganizationMember.account_id.in_(
+                        [account.id for account in accounts_by_key.values()]
+                    ),
                 )
             )
         )
@@ -302,33 +376,39 @@ def reconcile_reference_catalog(
     members_by_account = {(member.domain, member.account_id): member for member in existing_members}
     for key, organization in organizations_by_key.items():
         account = accounts_by_key[key]
-        expected_id = member_expected_ids[key]
-        member = members_by_id.get((organization.domain, expected_id)) or members_by_account.get(
-            (organization.domain, account.id)
-        )
+        member = members_by_id.get(
+            (organization.domain, member_expected_ids[key])
+        ) or members_by_account.get((organization.domain, account.id))
         if member is None:
-            member = OrganizationMember(domain=organization.domain, id=expected_id)
+            member = OrganizationMember(
+                domain=organization.domain,
+                id=member_expected_ids[key],
+                organization_id=organization.id,
+                account_id=account.id,
+                role=MemberRole.OWNER,
+                status=MemberStatus.ACTIVE,
+            )
             session.add(member)
-        _set_values(
-            member,
-            organization_id=organization.id,
-            account_id=account.id,
-            role=MemberRole.OWNER,
-            status=MemberStatus.ACTIVE,
-        )
+        else:
+            _set_values(
+                member,
+                organization_id=organization.id,
+                account_id=account.id,
+                role=MemberRole.OWNER,
+                status=MemberStatus.ACTIVE,
+            )
     session.flush()
 
     scholarship_expected_ids = {
-        str(spec["slug"]): stable_id(f"reference:scholarship:{spec['slug']}")
-        for spec in REFERENCE_SCHOLARSHIP_SPECS
+        str(spec["slug"]): stable_id(f"{CATALOG_REVISION}:scholarship:{spec['slug']}")
+        for spec in CATALOG_SCHOLARSHIP_SPECS
     }
-    reference_slugs = [str(spec["slug"]) for spec in REFERENCE_SCHOLARSHIP_SPECS]
     existing_scholarships = list(
         session.scalars(
             select(Scholarship).where(
                 or_(
                     Scholarship.id.in_(list(scholarship_expected_ids.values())),
-                    Scholarship.slug.in_(reference_slugs),
+                    Scholarship.slug.in_([str(spec["slug"]) for spec in CATALOG_SCHOLARSHIP_SPECS]),
                 )
             )
         )
@@ -336,48 +416,52 @@ def reconcile_reference_catalog(
     scholarships_by_id = {
         (scholarship.domain, scholarship.id): scholarship for scholarship in existing_scholarships
     }
-    scholarships_by_owner_slug = {
+    scholarships_by_slug = {
         (scholarship.domain, scholarship.organization_id, scholarship.slug): scholarship
         for scholarship in existing_scholarships
     }
-    scholarships_by_slug: dict[str, Scholarship] = {}
+    scholarship_by_slug: dict[str, Scholarship] = {}
 
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
         organization = organizations_by_key[str(spec["organization"])]
-        expected_id = scholarship_expected_ids[slug]
         scholarship = scholarships_by_id.get(
-            (organization.domain, expected_id)
-        ) or scholarships_by_owner_slug.get((organization.domain, organization.id, slug))
+            (organization.domain, scholarship_expected_ids[slug])
+        ) or scholarships_by_slug.get((organization.domain, organization.id, slug))
         if scholarship is None:
             scholarship = Scholarship(
                 domain=organization.domain,
-                id=expected_id,
+                id=scholarship_expected_ids[slug],
                 organization_id=organization.id,
                 slug=slug,
+                lifecycle_status=ScholarshipLifecycle.ACTIVE,
+                is_synthetic=True,
             )
             session.add(scholarship)
-        _set_values(
-            scholarship,
-            organization_id=organization.id,
-            slug=slug,
-            lifecycle_status=ScholarshipLifecycle.ACTIVE,
-            is_synthetic=True,
-            archived_at=None,
-        )
-        scholarships_by_slug[slug] = scholarship
+        else:
+            _set_values(
+                scholarship,
+                organization_id=organization.id,
+                slug=slug,
+                lifecycle_status=ScholarshipLifecycle.ACTIVE,
+                is_synthetic=True,
+                archived_at=None,
+            )
+        scholarship_by_slug[slug] = scholarship
     session.flush()
 
     version_expected_ids = {
-        slug: stable_id(f"reference:scholarship-version:{slug}:1") for slug in scholarships_by_slug
+        slug: stable_id(f"{CATALOG_REVISION}:scholarship-version:{slug}:1")
+        for slug in scholarship_by_slug
     }
-    scholarship_ids = [item.id for item in scholarships_by_slug.values()]
     existing_versions = list(
         session.scalars(
             select(ScholarshipVersion).where(
                 or_(
                     ScholarshipVersion.id.in_(list(version_expected_ids.values())),
-                    ScholarshipVersion.scholarship_id.in_(scholarship_ids),
+                    ScholarshipVersion.scholarship_id.in_(
+                        [item.id for item in scholarship_by_slug.values()]
+                    ),
                 )
             )
         )
@@ -387,64 +471,91 @@ def reconcile_reference_catalog(
         (version.domain, version.scholarship_id, version.version_number): version
         for version in existing_versions
     }
-    versions_by_slug: dict[str, ScholarshipVersion] = {}
+    version_by_slug: dict[str, ScholarshipVersion] = {}
 
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
-        scholarship = scholarships_by_slug[slug]
+        scholarship = scholarship_by_slug[slug]
         organization = organizations_by_key[str(spec["organization"])]
         publisher = accounts_by_key[str(spec["organization"])]
-        expected_id = version_expected_ids[slug]
-        chunks = _reference_chunks(spec)
-        version = versions_by_id.get((scholarship.domain, expected_id)) or versions_by_number.get(
-            (scholarship.domain, scholarship.id, 1)
-        )
+        version = versions_by_id.get(
+            (scholarship.domain, version_expected_ids[slug])
+        ) or versions_by_number.get((scholarship.domain, scholarship.id, 1))
+        chunks = _scheme_chunks(spec)
         if version is None:
             version = ScholarshipVersion(
                 domain=scholarship.domain,
-                id=expected_id,
+                id=version_expected_ids[slug],
                 organization_id=organization.id,
                 scholarship_id=scholarship.id,
                 version_number=1,
+                title=spec["title"],
+                summary=spec["summary"],
+                knowledge_summary=" ".join(text for _, text in chunks),
+                academic_year=spec["academic_year"],
+                scope=spec["scope"],
+                applicable_state_codes=list(spec["states"]),
+                education_levels=list(spec["levels"]),
+                course_families=list(spec["courses"]),
+                category_tags=list(spec["tags"]),
+                eligibility_rules_json=dict(spec["eligibility_rules"]),
+                document_requirements_json=list(spec["document_rules"]),
+                application_process_json=dict(spec["application_process"]),
+                benefit_summary=spec["benefit"],
+                benefit_amount_min=spec["amount_min"],
+                benefit_amount_max=spec["amount_max"],
+                application_opens_at=_as_datetime(spec["opens_at"]),
+                application_deadline_at=_as_datetime(spec["deadline_at"]),
+                official_source_url=spec["official_source_url"],
+                provider_helpdesk_url=spec["provider_helpdesk_url"],
+                publication_status=PublicationStatus.PUBLISHED,
+                last_provider_confirmed_at=CATALOG_PUBLISHED_AT,
+                created_by=publisher.id,
+                published_by=publisher.id,
+                published_at=CATALOG_PUBLISHED_AT,
             )
             session.add(version)
-        _set_values(
-            version,
-            organization_id=organization.id,
-            scholarship_id=scholarship.id,
-            version_number=1,
-            title=spec["title"],
-            summary=spec["summary"],
-            knowledge_summary=" ".join(text for _, text in chunks),
-            academic_year="See official source",
-            scope=_scope_for_type(organization.type),
-            applicable_state_codes=list(spec["states"]),
-            education_levels=list(spec["levels"]),
-            course_families=list(spec["courses"]),
-            category_tags=list(spec["tags"]),
-            benefit_summary=spec["benefit"],
-            benefit_amount_min=None,
-            benefit_amount_max=None,
-            application_opens_at=None,
-            application_deadline_at=None,
-            official_source_url=spec["official_source_url"],
-            provider_helpdesk_url=spec["official_source_url"],
-            publication_status=PublicationStatus.PUBLISHED,
-            last_provider_confirmed_at=REFERENCE_CATALOG_AT,
-            created_by=publisher.id,
-            published_by=publisher.id,
-            published_at=REFERENCE_CATALOG_AT,
-        )
-        versions_by_slug[slug] = version
+        else:
+            _set_values(
+                version,
+                organization_id=organization.id,
+                scholarship_id=scholarship.id,
+                version_number=1,
+                title=spec["title"],
+                summary=spec["summary"],
+                knowledge_summary=" ".join(text for _, text in chunks),
+                academic_year=spec["academic_year"],
+                scope=spec["scope"],
+                applicable_state_codes=list(spec["states"]),
+                education_levels=list(spec["levels"]),
+                course_families=list(spec["courses"]),
+                category_tags=list(spec["tags"]),
+                eligibility_rules_json=dict(spec["eligibility_rules"]),
+                document_requirements_json=list(spec["document_rules"]),
+                application_process_json=dict(spec["application_process"]),
+                benefit_summary=spec["benefit"],
+                benefit_amount_min=spec["amount_min"],
+                benefit_amount_max=spec["amount_max"],
+                application_opens_at=_as_datetime(spec["opens_at"]),
+                application_deadline_at=_as_datetime(spec["deadline_at"]),
+                official_source_url=spec["official_source_url"],
+                provider_helpdesk_url=spec["provider_helpdesk_url"],
+                publication_status=PublicationStatus.PUBLISHED,
+                last_provider_confirmed_at=CATALOG_PUBLISHED_AT,
+                created_by=publisher.id,
+                published_by=publisher.id,
+                published_at=CATALOG_PUBLISHED_AT,
+            )
+        version_by_slug[slug] = version
     session.flush()
 
-    for slug, scholarship in scholarships_by_slug.items():
-        scholarship.current_published_version_id = versions_by_slug[slug].id
+    for slug, scholarship in scholarship_by_slug.items():
+        scholarship.current_published_version_id = version_by_slug[slug].id
     session.flush()
 
     source_expected_ids = {
-        slug: stable_id(f"reference:source-document:{slug}:official-summary")
-        for slug in scholarships_by_slug
+        slug: stable_id(f"{CATALOG_REVISION}:source-document:{slug}:guidelines")
+        for slug in scholarship_by_slug
     }
     existing_sources = list(
         session.scalars(
@@ -452,46 +563,62 @@ def reconcile_reference_catalog(
         )
     )
     sources_by_id = {(source.domain, source.id): source for source in existing_sources}
-    sources_by_slug: dict[str, SourceDocument] = {}
+    source_by_slug: dict[str, SourceDocument] = {}
 
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
-        version = versions_by_slug[slug]
+        version = version_by_slug[slug]
         organization = organizations_by_key[str(spec["organization"])]
         publisher = accounts_by_key[str(spec["organization"])]
-        source_id = source_expected_ids[slug]
-        chunks = _reference_chunks(spec)
+        chunks = _scheme_chunks(spec)
         source_text = "\n\n".join(f"{title}\n{text}" for title, text in chunks)
         encoded_source = source_text.encode("utf-8")
-        source = sources_by_id.get((version.domain, source_id))
+        source = sources_by_id.get((version.domain, source_expected_ids[slug]))
         if source is None:
-            source = SourceDocument(domain=version.domain, id=source_id)
+            source = SourceDocument(
+                domain=version.domain,
+                id=source_expected_ids[slug],
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                display_name=f"{spec['title']} — Scheme Guidelines",
+                source_kind="SCHEME_GUIDELINE",
+                content_type="text/plain; charset=utf-8",
+                size_bytes=len(encoded_source),
+                storage_key=f"catalog/{slug}/guidelines.txt",
+                source_url=spec["official_source_url"],
+                checksum_sha256=hashlib.sha256(encoded_source).hexdigest(),
+                extracted_text=source_text,
+                usage_rights_confirmed_at=CATALOG_PUBLISHED_AT,
+                confirmation_status=OWNER_CONFIRMED,
+                uploaded_by=publisher.id,
+            )
             session.add(source)
-        _set_values(
-            source,
-            organization_id=organization.id,
-            scholarship_version_id=version.id,
-            display_name=f"{spec['title']} — Official-source reference summary",
-            source_kind="PUBLIC_SOURCE_REFERENCE",
-            content_type="text/plain; charset=utf-8",
-            size_bytes=len(encoded_source),
-            storage_key=None,
-            source_url=spec["official_source_url"],
-            checksum_sha256=hashlib.sha256(encoded_source).hexdigest(),
-            extracted_text=source_text,
-            usage_rights_confirmed_at=REFERENCE_CATALOG_AT,
-            confirmation_status=REFERENCE_STATUS,
-            uploaded_by=publisher.id,
-        )
-        sources_by_slug[slug] = source
+        else:
+            _set_values(
+                source,
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                display_name=f"{spec['title']} — Scheme Guidelines",
+                source_kind="SCHEME_GUIDELINE",
+                content_type="text/plain; charset=utf-8",
+                size_bytes=len(encoded_source),
+                storage_key=f"catalog/{slug}/guidelines.txt",
+                source_url=spec["official_source_url"],
+                checksum_sha256=hashlib.sha256(encoded_source).hexdigest(),
+                extracted_text=source_text,
+                usage_rights_confirmed_at=CATALOG_PUBLISHED_AT,
+                confirmation_status=OWNER_CONFIRMED,
+                uploaded_by=publisher.id,
+            )
+        source_by_slug[slug] = source
     session.flush()
 
     chunk_expected_ids = {
         (str(spec["slug"]), ordinal): stable_id(
-            f"reference:knowledge-chunk:{spec['slug']}:{ordinal}"
+            f"{CATALOG_REVISION}:knowledge-chunk:{spec['slug']}:{ordinal}"
         )
-        for spec in REFERENCE_SCHOLARSHIP_SPECS
-        for ordinal in range(1, 5)
+        for spec in CATALOG_SCHOLARSHIP_SPECS
+        for ordinal in range(1, 7)
     }
     existing_chunks = list(
         session.scalars(
@@ -501,36 +628,50 @@ def reconcile_reference_catalog(
     chunks_by_id = {(chunk.domain, chunk.id): chunk for chunk in existing_chunks}
     chunk_ids_by_slug: dict[str, list[uuid.UUID]] = {}
 
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
-        version = versions_by_slug[slug]
+        version = version_by_slug[slug]
         organization = organizations_by_key[str(spec["organization"])]
-        source = sources_by_slug[slug]
+        source = source_by_slug[slug]
         chunk_ids: list[uuid.UUID] = []
-        for ordinal, (section_title, provider_text) in enumerate(_reference_chunks(spec), start=1):
+        for ordinal, (section_title, provider_text) in enumerate(_scheme_chunks(spec), start=1):
             chunk_id = chunk_expected_ids[(slug, ordinal)]
             chunk = chunks_by_id.get((version.domain, chunk_id))
             if chunk is None:
-                chunk = KnowledgeChunk(domain=version.domain, id=chunk_id)
+                chunk = KnowledgeChunk(
+                    domain=version.domain,
+                    id=chunk_id,
+                    organization_id=organization.id,
+                    scholarship_version_id=version.id,
+                    source_document_id=source.id,
+                    ordinal=ordinal,
+                    page_number=ordinal,
+                    section_title=section_title,
+                    provider_text=provider_text,
+                    embedding_reference=None,
+                    confirmation_status=OWNER_CONFIRMED,
+                )
                 session.add(chunk)
-            _set_values(
-                chunk,
-                organization_id=organization.id,
-                scholarship_version_id=version.id,
-                source_document_id=source.id,
-                ordinal=ordinal,
-                page_number=None,
-                section_title=section_title,
-                provider_text=provider_text,
-                embedding_reference=None,
-                confirmation_status=REFERENCE_STATUS,
-            )
+            else:
+                _set_values(
+                    chunk,
+                    organization_id=organization.id,
+                    scholarship_version_id=version.id,
+                    source_document_id=source.id,
+                    ordinal=ordinal,
+                    page_number=ordinal,
+                    section_title=section_title,
+                    provider_text=provider_text,
+                    embedding_reference=None,
+                    confirmation_status=OWNER_CONFIRMED,
+                )
             chunk_ids.append(chunk.id)
         chunk_ids_by_slug[slug] = chunk_ids
     session.flush()
 
     extraction_expected_ids = {
-        slug: stable_id(f"reference:ai-extraction:{slug}:1") for slug in scholarships_by_slug
+        slug: stable_id(f"{CATALOG_REVISION}:ai-extraction:{slug}:1")
+        for slug in scholarship_by_slug
     }
     existing_extractions = list(
         session.scalars(
@@ -542,15 +683,17 @@ def reconcile_reference_catalog(
     extractions_by_id = {(draft.domain, draft.id): draft for draft in existing_extractions}
 
     template_expected_ids = {
-        slug: stable_id(f"reference:application-template:{slug}:1") for slug in scholarships_by_slug
+        slug: stable_id(f"{CATALOG_REVISION}:application-template:{slug}:1")
+        for slug in scholarship_by_slug
     }
-    version_ids = [version.id for version in versions_by_slug.values()]
     existing_templates = list(
         session.scalars(
             select(ApplicationTemplate).where(
                 or_(
                     ApplicationTemplate.id.in_(list(template_expected_ids.values())),
-                    ApplicationTemplate.scholarship_version_id.in_(version_ids),
+                    ApplicationTemplate.scholarship_version_id.in_(
+                        [version.id for version in version_by_slug.values()]
+                    ),
                 )
             )
         )
@@ -560,82 +703,110 @@ def reconcile_reference_catalog(
         (template.domain, template.scholarship_version_id, template.template_version): template
         for template in existing_templates
     }
-    templates_by_slug: dict[str, ApplicationTemplate] = {}
+    template_by_slug: dict[str, ApplicationTemplate] = {}
 
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
-        version = versions_by_slug[slug]
+        version = version_by_slug[slug]
         organization = organizations_by_key[str(spec["organization"])]
         publisher = accounts_by_key[str(spec["organization"])]
-        chunk_ids = chunk_ids_by_slug[slug]
-
-        extraction_id = extraction_expected_ids[slug]
-        extraction = extractions_by_id.get((version.domain, extraction_id))
+        extraction = extractions_by_id.get((version.domain, extraction_expected_ids[slug]))
+        extracted_content = {
+            "title": spec["title"],
+            "summary": spec["summary"],
+            "academic_year": spec["academic_year"],
+            "scope": spec["scope"],
+            "states": list(spec["states"]),
+            "education_levels": list(spec["levels"]),
+            "course_families": list(spec["courses"]),
+            "category_tags": list(spec["tags"]),
+            "benefit_summary": spec["benefit"],
+            "benefit_amount_min": spec["amount_min"],
+            "benefit_amount_max": spec["amount_max"],
+            "eligibility_rules": dict(spec["eligibility_rules"]),
+            "document_requirements": list(spec["document_rules"]),
+            "application_process": dict(spec["application_process"]),
+        }
         if extraction is None:
-            extraction = AIExtractionDraft(domain=version.domain, id=extraction_id)
+            extraction = AIExtractionDraft(
+                domain=version.domain,
+                id=extraction_expected_ids[slug],
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                model_identifier="nsp-catalog-rule-builder-v2",
+                prompt_version="structured-scholarship-v2",
+                extracted_content_json=extracted_content,
+                source_mapping_json={
+                    "confirmed_chunk_ids": [str(chunk_id) for chunk_id in chunk_ids_by_slug[slug]]
+                },
+                status=OWNER_CONFIRMED,
+                confirmed_by=publisher.id,
+                confirmed_at=CATALOG_PUBLISHED_AT,
+            )
             session.add(extraction)
-        _set_values(
-            extraction,
-            organization_id=organization.id,
-            scholarship_version_id=version.id,
-            model_identifier="catalog-seed-no-model-call",
-            prompt_version="public-source-reference-v1",
-            extracted_content_json={
-                "title": spec["title"],
-                "summary": spec["summary"],
-                "scope": version.scope,
-                "states": list(spec["states"]),
-                "education_levels": list(spec["levels"]),
-                "course_families": list(spec["courses"]),
-                "category_tags": list(spec["tags"]),
-                "benefit_summary": spec["benefit"],
-                "official_source_url": spec["official_source_url"],
-                "reference_notice": CONTENT_REPHRASED_NOTICE,
-            },
-            source_mapping_json={
-                "reference_chunk_ids": [str(chunk_id) for chunk_id in chunk_ids],
-                "official_source_url": spec["official_source_url"],
-            },
-            status=REFERENCE_STATUS,
-            confirmed_by=None,
-            confirmed_at=None,
-        )
+        else:
+            _set_values(
+                extraction,
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                model_identifier="nsp-catalog-rule-builder-v2",
+                prompt_version="structured-scholarship-v2",
+                extracted_content_json=extracted_content,
+                source_mapping_json={
+                    "confirmed_chunk_ids": [str(chunk_id) for chunk_id in chunk_ids_by_slug[slug]]
+                },
+                status=OWNER_CONFIRMED,
+                confirmed_by=publisher.id,
+                confirmed_at=CATALOG_PUBLISHED_AT,
+            )
 
-        template_id = template_expected_ids[slug]
-        template = templates_by_id.get((version.domain, template_id)) or templates_by_version.get(
-            (version.domain, version.id, 1)
-        )
+        template = templates_by_id.get(
+            (version.domain, template_expected_ids[slug])
+        ) or templates_by_version.get((version.domain, version.id, 1))
         if template is None:
-            template = ApplicationTemplate(domain=version.domain, id=template_id)
+            template = ApplicationTemplate(
+                domain=version.domain,
+                id=template_expected_ids[slug],
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                template_version=1,
+                status=OWNER_CONFIRMED,
+                required_document_types=list(spec["required_documents"]),
+                created_by=publisher.id,
+                confirmed_by=publisher.id,
+                confirmed_at=CATALOG_PUBLISHED_AT,
+            )
             session.add(template)
-        _set_values(
-            template,
-            organization_id=organization.id,
-            scholarship_version_id=version.id,
-            template_version=1,
-            status=REFERENCE_STATUS,
-            required_document_types=list(DEFAULT_REQUIRED_DOCUMENT_TYPES),
-            created_by=publisher.id,
-            confirmed_by=None,
-            confirmed_at=None,
-        )
-        templates_by_slug[slug] = template
+        else:
+            _set_values(
+                template,
+                organization_id=organization.id,
+                scholarship_version_id=version.id,
+                template_version=1,
+                status=OWNER_CONFIRMED,
+                required_document_types=list(spec["required_documents"]),
+                created_by=publisher.id,
+                confirmed_by=publisher.id,
+                confirmed_at=CATALOG_PUBLISHED_AT,
+            )
+        template_by_slug[slug] = template
     session.flush()
 
     field_expected_ids = {
         (str(spec["slug"]), definition.key): stable_id(
-            f"reference:application-template-field:{spec['slug']}:{definition.key}"
+            f"{CATALOG_REVISION}:application-template-field:{spec['slug']}:{definition.key}"
         )
-        for spec in REFERENCE_SCHOLARSHIP_SPECS
+        for spec in CATALOG_SCHOLARSHIP_SPECS
         for definition in DEFAULT_FIELD_DEFINITIONS
     }
-    template_ids = [template.id for template in templates_by_slug.values()]
     existing_fields = list(
         session.scalars(
             select(ApplicationTemplateField).where(
                 or_(
                     ApplicationTemplateField.id.in_(list(field_expected_ids.values())),
-                    ApplicationTemplateField.application_template_id.in_(template_ids),
+                    ApplicationTemplateField.application_template_id.in_(
+                        [template.id for template in template_by_slug.values()]
+                    ),
                 )
             )
         )
@@ -647,7 +818,8 @@ def reconcile_reference_catalog(
     }
 
     audit_expected_ids = {
-        slug: stable_id(f"reference:audit:publish:{slug}:1") for slug in scholarships_by_slug
+        slug: stable_id(f"{CATALOG_REVISION}:audit:publish:{slug}:1")
+        for slug in scholarship_by_slug
     }
     existing_audits = list(
         session.scalars(
@@ -655,7 +827,6 @@ def reconcile_reference_catalog(
         )
     )
     audits_by_id = {(audit.domain, audit.id): audit for audit in existing_audits}
-
     income_options = [
         "UP_TO_250000",
         "250001_TO_400000",
@@ -663,15 +834,16 @@ def reconcile_reference_catalog(
         "600001_TO_800000",
         "ABOVE_800000",
     ]
-    for spec in REFERENCE_SCHOLARSHIP_SPECS:
+
+    for spec in CATALOG_SCHOLARSHIP_SPECS:
         slug = str(spec["slug"])
-        version = versions_by_slug[slug]
+        version = version_by_slug[slug]
         organization = organizations_by_key[str(spec["organization"])]
         publisher = accounts_by_key[str(spec["organization"])]
-        template = templates_by_slug[slug]
+        template = template_by_slug[slug]
         option_sets = {
             "course": _course_options(spec),
-            "domicile_state": list(spec["states"]),
+            "domicile_state": _state_options(spec),
             "family_income_band": income_options,
         }
         for sort_order, definition in enumerate(DEFAULT_FIELD_DEFINITIONS, start=1):
@@ -680,49 +852,100 @@ def reconcile_reference_catalog(
                 (version.domain, template.id, definition.key)
             )
             if field is None:
-                field = ApplicationTemplateField(domain=version.domain, id=field_id)
+                field = ApplicationTemplateField(
+                    domain=version.domain,
+                    id=field_id,
+                    organization_id=organization.id,
+                    scholarship_version_id=version.id,
+                    application_template_id=template.id,
+                    field_key=definition.key,
+                    label=definition.label,
+                    help_text=definition.help_text,
+                    field_type=definition.field_type,
+                    required=True,
+                    options_json=option_sets.get(definition.key),
+                    profile_binding=definition.profile_binding,
+                    source_chunk_id=chunk_ids_by_slug[slug][0],
+                    sort_order=sort_order,
+                )
                 session.add(field)
-            _set_values(
-                field,
+            else:
+                _set_values(
+                    field,
+                    organization_id=organization.id,
+                    scholarship_version_id=version.id,
+                    application_template_id=template.id,
+                    field_key=definition.key,
+                    label=definition.label,
+                    help_text=definition.help_text,
+                    field_type=definition.field_type,
+                    required=True,
+                    options_json=option_sets.get(definition.key),
+                    profile_binding=definition.profile_binding,
+                    source_chunk_id=chunk_ids_by_slug[slug][0],
+                    sort_order=sort_order,
+                )
+
+        audit = audits_by_id.get((version.domain, audit_expected_ids[slug]))
+        if audit is None:
+            audit = AuditEvent(
+                domain=version.domain,
+                id=audit_expected_ids[slug],
+                actor_account_id=publisher.id,
                 organization_id=organization.id,
-                scholarship_version_id=version.id,
-                application_template_id=template.id,
-                field_key=definition.key,
-                label=definition.label,
-                help_text=definition.help_text,
-                field_type=definition.field_type,
-                required=True,
-                options_json=option_sets.get(definition.key),
-                profile_binding=definition.profile_binding,
-                source_chunk_id=chunk_ids_by_slug[slug][1],
-                sort_order=sort_order,
+                action="SCHOLARSHIP_VERSION_PUBLISHED_BY_OWNER",
+                resource_type="scholarship_version",
+                resource_id=version.id,
+                safe_metadata_json={
+                    "catalog_revision": CATALOG_REVISION,
+                    "demonstration_data": True,
+                    "version_number": 1,
+                    "academic_year": spec["academic_year"],
+                },
+            )
+            session.add(audit)
+        else:
+            _set_values(
+                audit,
+                actor_account_id=publisher.id,
+                organization_id=organization.id,
+                action="SCHOLARSHIP_VERSION_PUBLISHED_BY_OWNER",
+                resource_type="scholarship_version",
+                resource_id=version.id,
+                safe_metadata_json={
+                    "catalog_revision": CATALOG_REVISION,
+                    "demonstration_data": True,
+                    "version_number": 1,
+                    "academic_year": spec["academic_year"],
+                },
             )
 
-        audit_id = audit_expected_ids[slug]
-        audit = audits_by_id.get((version.domain, audit_id))
-        if audit is None:
-            audit = AuditEvent(domain=version.domain, id=audit_id)
-            session.add(audit)
-        _set_values(
-            audit,
-            actor_account_id=publisher.id,
-            organization_id=organization.id,
-            action="PUBLIC_SOURCE_REFERENCE_PUBLISHED",
-            resource_type="scholarship_version",
-            resource_id=version.id,
-            safe_metadata_json={
-                "synthetic": True,
-                "reference_entry": True,
-                "provider_onboarded": False,
-                "version_number": 1,
-                "official_source_url": spec["official_source_url"],
-                "content_notice": CONTENT_REPHRASED_NOTICE,
-            },
+    marker = session.get(
+        AuditEvent,
+        (OwnershipDomain.CENTRAL_GOVERNMENT, CATALOG_MARKER_ID),
+    )
+    if marker is None:
+        central_organization = organizations_by_key["central"]
+        central_publisher = accounts_by_key["central"]
+        session.add(
+            AuditEvent(
+                domain=OwnershipDomain.CENTRAL_GOVERNMENT,
+                id=CATALOG_MARKER_ID,
+                actor_account_id=central_publisher.id,
+                organization_id=central_organization.id,
+                action="CATALOG_REBUILD_COMPLETED",
+                resource_type="scholarship_catalog",
+                resource_id=None,
+                safe_metadata_json={
+                    "catalog_revision": CATALOG_REVISION,
+                    "scholarship_count": len(CATALOG_SCHOLARSHIP_SPECS),
+                },
+            )
         )
 
     session.flush()
     return {
-        "removed_broken_scholarships": removed_count,
-        "reference_organizations": len(REFERENCE_ORGANIZATION_SPECS),
-        "reference_scholarships": len(REFERENCE_SCHOLARSHIP_SPECS),
+        "removed_legacy_scholarships": removed_count,
+        "catalog_organizations": len(CATALOG_ORGANIZATION_SPECS),
+        "catalog_scholarships": len(CATALOG_SCHOLARSHIP_SPECS),
     }
