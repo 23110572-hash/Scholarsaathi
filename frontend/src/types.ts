@@ -102,6 +102,8 @@ export interface ScholarshipList {
 }
 
 export interface DiscoveryProfile {
+  /** Earlier turns of this chat session, oldest first. Not stored server-side. */
+  history?: ChatTurn[]
   message?: string
   state?: string
   gender?: string
@@ -163,7 +165,22 @@ export interface ScholarshipAssessment {
   warning: string
 }
 
+export interface ChatTurn {
+  role: 'STUDENT' | 'ASSISTANT'
+  text: string
+}
+
+/** Values stated in chat, used for one submission and never saved to the profile. */
+export interface ConversationFieldValues {
+  state_code?: string
+  course?: string
+  course_year?: number
+  marks_percentage?: number
+  family_income_range?: string
+}
+
 export type ChatIntent =
+  | 'APPLY_REQUEST'
   | 'GREETING'
   | 'SMALL_TALK'
   | 'GENERAL_QUESTION'

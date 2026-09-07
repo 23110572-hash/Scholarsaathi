@@ -219,9 +219,18 @@ def claim_anonymous_intents(
 
 
 class _ApplicationRuntime:
-    def __init__(self, db: Session, intent: ApplicationIntent):
+    def __init__(
+        self,
+        db: Session,
+        intent: ApplicationIntent,
+        supplied_values: dict[str, Any] | None = None,
+    ):
         self.db = db
         self.intent = intent
+        # Values the student stated in chat for this submission only. They fill provider
+        # form fields when the reusable profile has no usable value, and are never
+        # written back to the profile.
+        self.supplied_values: dict[str, Any] = dict(supplied_values or {})
         self.now = datetime.now(UTC)
         self.scholarship: Scholarship | None = None
         self.version: ScholarshipVersion | None = None
@@ -362,6 +371,10 @@ class _ApplicationRuntime:
                 field,
                 explicitly_authorized=True,
             )
+            if not field_value_is_valid(field, value) and field.profile_binding:
+                supplied = self.supplied_values.get(field.profile_binding)
+                if supplied is not None and field_value_is_valid(field, supplied):
+                    value = supplied
             if field.required and not field_value_is_valid(field, value):
                 missing_profile.append(field.profile_binding or field.field_key)
             elif field_value_is_valid(field, value):
@@ -605,7 +618,11 @@ class _ApplicationRuntime:
         return self._state(halted=True)
 
 
-def run_application_intent(db: Session, intent_id: uuid.UUID) -> ApplicationIntent:
+def run_application_intent(
+    db: Session,
+    intent_id: uuid.UUID,
+    supplied_values: dict[str, Any] | None = None,
+) -> ApplicationIntent:
     intent = db.scalar(
         select(ApplicationIntent)
         .where(ApplicationIntent.id == intent_id)
@@ -614,7 +631,7 @@ def run_application_intent(db: Session, intent_id: uuid.UUID) -> ApplicationInte
     if intent is None:
         raise LookupError("Application intent was not found")
     try:
-        run_application_flow(_ApplicationRuntime(db, intent), intent.id)
+        run_application_flow(_ApplicationRuntime(db, intent, supplied_values), intent.id)
         db.commit()
     except Exception:
         logger.error("Application intent execution failed (intent_id=%s)", intent_id)

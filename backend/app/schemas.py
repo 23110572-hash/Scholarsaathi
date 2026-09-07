@@ -213,8 +213,21 @@ class ScholarshipDetailResponse(ScholarshipCard):
     application_fields: list[ApplicationFieldResponse]
 
 
+class ChatTurn(APIModel):
+    """One earlier message in the student's current assistant session.
+
+    History is supplied by the client each turn and is never stored server-side, so the
+    model can follow references like "apply to all of those" without the platform keeping
+    a transcript of the conversation.
+    """
+
+    role: Literal["STUDENT", "ASSISTANT"]
+    text: str = Field(min_length=1, max_length=900)
+
+
 class DiscoveryProfile(APIModel):
     message: str | None = Field(default=None, max_length=1200)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=24)
     state: str | None = Field(default=None, min_length=2, max_length=2)
     gender: str | None = Field(default=None, max_length=40)
     education_level: str | None = Field(default=None, max_length=60)
@@ -270,6 +283,7 @@ ChatIntent = Literal[
     "GENERAL_QUESTION",
     "SHARING_DETAILS",
     "SCHOLARSHIP_SEARCH",
+    "APPLY_REQUEST",
     "OUT_OF_SCOPE",
 ]
 
@@ -606,8 +620,37 @@ ApplicationAuthorizationSource = Literal[
 ]
 
 
+class ConversationFieldValues(APIModel):
+    """Form values the student stated in chat, used only for this submission.
+
+    These are deliberately not written to the reusable student profile: they answer the
+    provider's form for the applications authorized in this request and nothing else.
+    Only bindings the provider template can request are accepted.
+    """
+
+    state_code: str | None = Field(default=None, min_length=2, max_length=2)
+    course: str | None = Field(default=None, max_length=80)
+    course_year: int | None = Field(default=None, ge=1, le=12)
+    marks_percentage: float | None = Field(default=None, ge=0, le=100)
+    family_income_range: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def normalize(self) -> ConversationFieldValues:
+        if self.state_code:
+            self.state_code = self.state_code.strip().upper()
+        if self.course:
+            self.course = self.course.strip().upper()
+        if self.family_income_range:
+            self.family_income_range = self.family_income_range.strip().upper()
+        return self
+
+    def as_binding_values(self) -> dict[str, Any]:
+        return self.model_dump(exclude_none=True)
+
+
 class ApplicationIntentCreateRequest(APIModel):
-    scholarship_ids: list[uuid.UUID] = Field(min_length=1, max_length=5)
+    scholarship_ids: list[uuid.UUID] = Field(min_length=1, max_length=12)
+    conversation_fields: ConversationFieldValues | None = None
     explicit_apply_authorization: bool
     authorization_source: ApplicationAuthorizationSource
 

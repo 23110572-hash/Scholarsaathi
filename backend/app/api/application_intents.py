@@ -224,7 +224,14 @@ def create_application_intents(
         response.delete_cookie(settings.application_intent_cookie_name, path="/")
 
     if auth is not None:
-        intents = [run_application_intent(db, intent.id) for intent in intents]
+        supplied_values = (
+            payload.conversation_fields.as_binding_values()
+            if payload.conversation_fields is not None
+            else {}
+        )
+        intents = [
+            run_application_intent(db, intent.id, supplied_values) for intent in intents
+        ]
     return ApplicationIntentBatchResponse(
         items=[
             _intent_response(db, intent, scholarship_title=titles[intent.scholarship_id])

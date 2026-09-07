@@ -42,35 +42,6 @@ _SENSITIVE_MESSAGE_PATTERN = re.compile(
     r"credit\s+card|debit\s+card)\b",
     re.IGNORECASE,
 )
-_SMALL_TALK_PATTERN = re.compile(
-    r"^(?:hi+|hello+|hey+|namaste|thanks?|thank\s+you|thx|ty|ok(?:ay)?|bye|"
-    r"good\s+(?:morning|afternoon|evening|night))"
-    r"(?:\s+(?:bro|bhai|sir|maam|yaar))?[\s!,.?]*$",
-    re.IGNORECASE,
-)
-_GENERAL_QUESTION_PATTERN = re.compile(
-    r"\b(?:docs?|documents?|upload|deadline|last\s+date|income\s+certificate|"
-    r"application\s+process|steps?\s+to\s+apply|how\s+(?:do|can|should)\s+i\s+apply|"
-    r"where\s+(?:do|can)\s+i\s+(?:submit|upload)|what\s+(?:details|documents?)\s+do\s+i\s+need|"
-    r"who\s+are\s+you|what\s+can\s+you\s+do)\b",
-    re.IGNORECASE,
-)
-_SEARCH_REQUEST_PATTERN = re.compile(
-    r"\b(?:find|suggest|recommend|match|search(?:\s+for)?)\b.{0,80}"
-    r"\b(?:scholarships?|schemes?|options?|matches?|eligible|ones?)\b|"
-    r"\b(?:scholarships?|schemes?)\b.{0,80}\b(?:find|show|suggest|recommend|match|eligible)\b|"
-    r"\b(?:eligible|eligibility)\b.{0,60}\b(?:scholarships?|schemes?|options?)\b",
-    re.IGNORECASE,
-)
-_LEADING_FIND_PATTERN = re.compile(
-    r"^(?:please\s+|pls\s+|plz\s+)?find\b(?!\s+out\b)",
-    re.IGNORECASE,
-)
-_SHORT_SEARCH_PATTERN = re.compile(
-    r"^(?:please\s+|pls\s+|plz\s+)?(?:find|search|show|suggest|recommend|match)"
-    r"(?:\s+(?:all|some|more|again|ones?|options?|matches?))?[\s!,.?]*$",
-    re.IGNORECASE,
-)
 _EXTRACTED_SCALAR_FIELDS = (
     "state",
     "gender",
@@ -84,28 +55,6 @@ _EXTRACTED_SCALAR_FIELDS = (
 
 def _contains_sensitive_information(message: str | None) -> bool:
     return bool(message and _SENSITIVE_MESSAGE_PATTERN.search(message))
-
-
-def _is_search_request(message: str | None) -> bool:
-    if not message:
-        return False
-    normalized = " ".join(message.split())
-    return bool(
-        _LEADING_FIND_PATTERN.search(normalized)
-        or _SHORT_SEARCH_PATTERN.fullmatch(normalized)
-        or _SEARCH_REQUEST_PATTERN.search(normalized)
-    )
-
-
-def _is_conversation_only_message(message: str | None) -> bool:
-    if not message:
-        return False
-    normalized = " ".join(message.split())
-    if _is_search_request(normalized):
-        return False
-    return bool(
-        _SMALL_TALK_PATTERN.fullmatch(normalized) or _GENERAL_QUESTION_PATTERN.search(normalized)
-    )
 
 
 def _only_new_extracted_facts(
@@ -269,8 +218,13 @@ def _run_chat_preflight(
             "known_student_facts": profile.model_dump(
                 mode="json",
                 exclude_none=True,
-                exclude={"message", "preferred_language"},
+                exclude={"message", "preferred_language", "history"},
             ),
+            # Earlier turns of this session, oldest first, so the model can resolve
+            # references such as "those ones" instead of treating each message as new.
+            "conversation_history": [
+                {"role": turn.role, "text": turn.text} for turn in profile.history
+            ],
             "catalog_titles": catalog_titles,
             "catalog_count": len(catalog_titles),
         }
@@ -357,31 +311,38 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         if chat_parsed is not None:
             effective_profile = _profile_with_extracted_facts(profile, chat_parsed.extracted)
 
-    search_requested = _is_search_request(profile.message) or (
-        chat_parsed is not None and chat_parsed.intent == "SCHOLARSHIP_SEARCH"
-    )
-    conversation_intents = {
-        "GREETING",
-        "SMALL_TALK",
-        "GENERAL_QUESTION",
-        "SHARING_DETAILS",
-        "OUT_OF_SCOPE",
-    }
-    if (
-        _is_conversation_only_message(profile.message)
-        or not _has_eligibility_facts(effective_profile)
-        or (
-            chat_parsed is not None
-            and not search_requested
-            and chat_parsed.intent in conversation_intents
-        )
-    ):
-        return _conversation_response(
-            db,
-            profile,
-            chat_parsed,
-            chat_attempted=chat_attempted,
-        )
+    # The model owns intent classification. Deterministic code only decides whether we
+    # have enough facts to run the rules engine, and handles the model being unavailable.
+    has_facts = _has_eligibility_facts(effective_profile)
+
+    if chat_parsed is None:
+        # No model verdict available (no API key or capacity error). Fall back to facts.
+        if not has_facts:
+            return _conversation_response(
+                db,
+                profile,
+                chat_parsed,
+                chat_attempted=chat_attempted,
+            )
+    else:
+        # An apply request is a routing decision for the client, not a search turn.
+        if chat_parsed.intent == "APPLY_REQUEST":
+            return _conversation_response(
+                db,
+                profile,
+                chat_parsed,
+                chat_attempted=chat_attempted,
+            )
+        # Sharing details is an implicit search once the facts are usable, which is why
+        # it is not treated as a conversation-only intent here.
+        wants_matches = chat_parsed.intent in {"SCHOLARSHIP_SEARCH", "SHARING_DETAILS"}
+        if not wants_matches or not has_facts:
+            return _conversation_response(
+                db,
+                profile,
+                chat_parsed,
+                chat_attempted=chat_attempted,
+            )
 
     turn_extracted = (
         _only_new_extracted_facts(profile, chat_parsed.extracted)

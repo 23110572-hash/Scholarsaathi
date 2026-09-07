@@ -22,6 +22,8 @@ import type {
   ApplicationIntentResponse,
   ChatDetailKey,
   ChatExtractedFacts,
+  ChatTurn,
+  ConversationFieldValues,
   DiscoveryProfile,
   DiscoveryResponse,
   ScholarshipAssessment,
@@ -179,20 +181,53 @@ function factsFromLocation(search: string): KnownFacts {
   return facts
 }
 
-function isExplicitApplyCommand(message: string): boolean {
-  const normalised = message.trim().toLowerCase()
-  if (!/\b(apply|submit)\b/.test(normalised)) return false
+const APPLY_SUGGESTION = 'Apply for this scholarship'
+const APPLY_WAVE_SIZE = 3
 
-  // Questions about documents or the application process must remain chat questions.
-  if (/\b(docs?|documents?|upload|requirements?|process|steps?)\b/.test(normalised)) return false
-  if (/\b(?:how|where|what|when|which|why)\b/.test(normalised)) return false
-  if (/\b(?:can|could|should|may) i apply\b/.test(normalised)) return false
+/** Provider form bindings the workflow reports as missing, in student-facing words. */
+const bindingLabels: Record<string, string> = {
+  state_code: 'State or UT',
+  course: 'course',
+  course_year: 'study year',
+  marks_percentage: 'marks percentage',
+  family_income_range: 'family income range',
+}
 
-  return (
-    /^(?:please\s+|pls\s+|plz\s+)?(?:apply|submit)(?:\s|$)/.test(normalised) ||
-    /\b(?:apply|submit)\b.*\b(?:for me|on my behalf|my application|my form|krdo|kardo)\b/.test(normalised) ||
-    /\b(?:can|could|will|would) (?:you|u) (?:please )?(?:apply|submit)\b/.test(normalised)
-  )
+/** Chat-stated values for one submission. Never written to the student profile. */
+function conversationFieldsFromFacts(facts: KnownFacts): ConversationFieldValues {
+  return {
+    ...(facts.state ? { state_code: facts.state } : {}),
+    ...(facts.course ? { course: facts.course } : {}),
+    ...(facts.course_year !== undefined ? { course_year: facts.course_year } : {}),
+    ...(facts.marks_percentage !== undefined ? { marks_percentage: facts.marks_percentage } : {}),
+    ...(facts.family_income_range ? { family_income_range: facts.family_income_range } : {}),
+  }
+}
+
+function replyToHistoryText(reply: AssistantReply): string {
+  if (reply.kind === 'notice') return reply.message
+  if (reply.kind === 'question') return reply.data.answer
+  if (reply.kind === 'application') {
+    return reply.data.items
+      .map((item) => `${item.scholarship_title}: ${item.assistant_message}`)
+      .join(' | ')
+  }
+  if (reply.data.mode === 'CONVERSATION') return reply.data.introduction ?? ''
+  const titles = reply.data.candidates.map((candidate) => candidate.title).join('; ')
+  return `${reply.data.introduction ?? ''}${titles ? ` Matches shown: ${titles}` : ''}`.trim()
+}
+
+/** Whole-session transcript so the model never treats a turn as a new conversation. */
+function buildHistory(turns: ConversationTurn[]): ChatTurn[] {
+  const history: ChatTurn[] = []
+  turns.forEach((turn) => {
+    if (turn.question) history.push({ role: 'STUDENT', text: turn.question.slice(0, 900) })
+    if (turn.reply) {
+      const text = replyToHistoryText(turn.reply).slice(0, 900)
+      if (text) history.push({ role: 'ASSISTANT', text })
+    }
+  })
+  return history.slice(-24)
 }
 
 function containsSensitiveInformation(message: string): boolean {
@@ -363,8 +398,9 @@ function ApplicationReply({ data, returnPath }: { data: ApplicationIntentBatchRe
             )}
             {item.missing_document_types.length > 0 && (
               <p>
-                <strong>Documents needed:</strong>{' '}
-                {item.missing_document_types.map((type) => documentLabels[type]).join(', ')}
+                <strong>Please update these documents in your profile:</strong>{' '}
+                {item.missing_document_types.map((type) => documentLabels[type]).join(', ')}. I
+                cannot accept files in chat, so upload them in your profile and I will continue.
               </p>
             )}
             {action && (
@@ -400,9 +436,15 @@ export function EligibilityAssistant() {
   } = useAssistant()
   const [draft, setDraft] = useState('')
   const [turns, setTurns] = useState<ConversationTurn[]>([])
+  const turnsRef = useRef<ConversationTurn[]>([])
   const [facts, setFacts] = useState<KnownFacts>(() => factsFromLocation(location.search))
   const [stateNames, setStateNames] = useState<Record<string, string>>({})
   const [recentScholarshipIds, setRecentScholarshipIds] = useState<string[]>([])
+  const recentScholarshipIdsRef = useRef<string[]>([])
+  const [applyQueue, setApplyQueue] = useState<string[]>([])
+  const [retryIds, setRetryIds] = useState<string[]>([])
+  const profileFactsRef = useRef<KnownFacts>({})
+  const [hasProfileFacts, setHasProfileFacts] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadingLabel, setLoadingLabel] = useState('Thinking…')
   const [error, setError] = useState('')
@@ -417,13 +459,11 @@ export function EligibilityAssistant() {
   }, [])
   const speech = useSpeechRecognition(user?.preferred_language ?? 'en', appendVoiceTranscript)
 
-  const openingSuggestions = useMemo(
-    () =>
-      scholarshipId
-        ? ['Am I eligible?', 'Which documents do I need?', 'Apply for this scholarship']
-        : [],
-    [scholarshipId],
-  )
+  const openingSuggestions = useMemo(() => {
+    if (scholarshipId) return ['Am I eligible?', 'Which documents do I need?', APPLY_SUGGESTION]
+    // A signed-in student with saved details should be one tap from their matches.
+    return hasProfileFacts ? ['Find my eligible scholarships'] : []
+  }, [scholarshipId, hasProfileFacts])
 
   const factPills = useMemo(() => {
     const pills: string[] = []
@@ -451,26 +491,51 @@ export function EligibilityAssistant() {
         : []
 
   useEffect(() => {
+    recentScholarshipIdsRef.current = recentScholarshipIds
+  }, [recentScholarshipIds])
+
+  useEffect(() => {
+    turnsRef.current = turns
+  }, [turns])
+
+  // Reset only when the assistant changes context (catalog vs a specific scholarship).
+  // Filter or query changes must not erase the running conversation.
+  useEffect(() => {
     setDraft('')
     setTurns([])
     setError('')
     setRecentScholarshipIds([])
-    setFacts(factsFromLocation(location.search))
+    recentScholarshipIdsRef.current = []
+    turnsRef.current = []
+    setApplyQueue([])
+    setRetryIds([])
+    setFacts({ ...profileFactsRef.current, ...factsFromLocation(location.search) })
     speech.abort()
-  }, [routeKey, location.search]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [routeKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A signed-in student's stored profile is the baseline for every turn. It is refetched
+  // when the panel opens so profile edits are picked up, and kept in a ref so switching
+  // between the catalog and a scholarship page never loses it.
   useEffect(() => {
-    if (user?.realm !== 'STUDENT') return
+    if (user?.realm !== 'STUDENT') {
+      profileFactsRef.current = {}
+      setHasProfileFacts(false)
+      return
+    }
     let cancelled = false
     void api<StudentProfile>('/api/student/profile')
       .then((profile) => {
-        if (!cancelled) setFacts((current) => ({ ...factsFromProfile(profile), ...current }))
+        if (cancelled) return
+        const profileFacts = factsFromProfile(profile)
+        profileFactsRef.current = profileFacts
+        setHasProfileFacts(Object.keys(profileFacts).length > 0)
+        setFacts((current) => ({ ...profileFacts, ...current }))
       })
       .catch(() => undefined)
     return () => {
       cancelled = true
     }
-  }, [user?.id])
+  }, [user?.id, open])
 
   useEffect(() => {
     if (!open || Object.keys(stateNames).length > 0) return
@@ -521,17 +586,18 @@ export function EligibilityAssistant() {
   }, [open, turns, loading])
 
   const performApplication = useCallback(
-    async (ids: string[], question: string) => {
+    async (ids: string[], question?: string) => {
       if (ids.length === 0) {
         const id = nextId.current++
         setTurns((current) => [
           ...current,
           {
             id,
-            question,
+            ...(question ? { question } : {}),
             reply: {
               kind: 'notice',
-              message: 'First ask me to find scholarships, then tell me which results to apply for.',
+              message:
+                'I do not have any matched scholarships in this chat yet. Share your state, course, study year, marks, and family income and I will find your matches, then apply.',
             },
           },
         ])
@@ -539,8 +605,28 @@ export function EligibilityAssistant() {
       }
       if (loadingRef.current) return
       loadingRef.current = true
+
+      // Apply in small waves so the student sees each result instead of waiting on a
+      // long batch, and so every wave carries its own explicit authorization.
+      const wave = ids.slice(0, APPLY_WAVE_SIZE)
+      const remaining = ids.slice(APPLY_WAVE_SIZE)
       const id = nextId.current++
-      setTurns((current) => [...current, { id, question }])
+      setTurns((current) => [
+        ...current,
+        ...(question ? [{ id: nextId.current++, question }] : []),
+        ...(remaining.length > 0
+          ? [
+              {
+                id: nextId.current++,
+                reply: {
+                  kind: 'notice' as const,
+                  message: `Starting with the best ${wave.length} matches for your profile. Once these finish I will continue with the remaining ${remaining.length}.`,
+                },
+              },
+            ]
+          : []),
+        { id },
+      ])
       setDraft('')
       setError('')
       setLoading(true)
@@ -549,7 +635,8 @@ export function EligibilityAssistant() {
         const data = await api<ApplicationIntentBatchResponse>('/api/application-intents', {
           method: 'POST',
           body: JSON.stringify({
-            scholarship_ids: ids.slice(0, 5),
+            scholarship_ids: wave,
+            conversation_fields: conversationFieldsFromFacts(facts),
             explicit_apply_authorization: true,
             authorization_source: 'ASSISTANT_EXPLICIT_APPLY',
           }),
@@ -559,14 +646,38 @@ export function EligibilityAssistant() {
             turn.id === id ? { ...turn, reply: { kind: 'application', data } } : turn,
           ),
         )
+        setApplyQueue(remaining)
+
+        // Anything still missing is asked for in chat. The student answers here and the
+        // retry reuses those values for the submission without touching their profile.
+        const blocked = data.items.filter((item) => item.outcome === 'PROFILE_REQUIRED')
+        const needed = Array.from(
+          new Set(blocked.flatMap((item) => item.missing_profile_fields)),
+        )
+        setRetryIds(blocked.map((item) => item.scholarship_id))
+        if (needed.length > 0) {
+          setTurns((current) => [
+            ...current,
+            {
+              id: nextId.current++,
+              reply: {
+                kind: 'notice',
+                message: `To finish ${blocked.length === 1 ? 'this application' : `these ${blocked.length} applications`} I still need your ${needed
+                  .map((field) => bindingLabels[field] ?? titleCase(field))
+                  .join(', ')}. Tell me here in chat and I will complete ${blocked.length === 1 ? 'it' : 'them'}.`,
+              },
+            },
+          ])
+        }
       } catch (caught) {
+        setTurns((current) => current.filter((turn) => turn.id !== id))
         setError(caught instanceof Error ? caught.message : 'The application request could not be completed.')
       } finally {
         loadingRef.current = false
         setLoading(false)
       }
     },
-    [user?.realm],
+    [user?.realm, facts],
   )
 
   const send = useCallback(
@@ -593,13 +704,6 @@ export function EligibilityAssistant() {
         setDraft('')
         return
       }
-      if (isExplicitApplyCommand(message)) {
-        const targets = scholarshipId ? [scholarshipId] : recentScholarshipIds
-        await performApplication(targets, message)
-        return
-      }
-
-      if (!scholarshipId) setRecentScholarshipIds([])
       loadingRef.current = true
       const id = nextId.current++
       setTurns((current) => [...current, { id, question: message }])
@@ -625,6 +729,7 @@ export function EligibilityAssistant() {
         } else {
           const payload: DiscoveryProfile = {
             ...facts,
+            history: buildHistory(turnsRef.current),
             message,
             preferred_language: user?.preferred_language ?? 'en',
           }
@@ -633,16 +738,41 @@ export function EligibilityAssistant() {
             body: JSON.stringify(payload),
           })
           setFacts((current) => mergeFacts(current, data.extracted))
+
+          // The model decided this turn is an instruction to apply. Act on the matches
+          // already shown in this conversation instead of asking the student to repeat.
+          if (data.intent === 'APPLY_REQUEST') {
+            loadingRef.current = false
+            setLoading(false)
+            setTurns((current) => current.filter((turn) => turn.id !== id))
+            await performApplication(recentScholarshipIdsRef.current, message)
+            return
+          }
+
           const eligibleAssessments = new Set(
             data.assessments
               .filter((item) => item.assessment !== 'LIKELY_NOT_ELIGIBLE')
               .map((item) => item.scholarship_version_id),
           )
+          const rankByVersion = new Map(
+            data.assessments.map((item) => [
+              item.scholarship_version_id,
+              assessmentRank[item.assessment],
+            ]),
+          )
+          // Strongest matches first so an "apply to all" wave starts with the best 3.
           const targetIds = data.candidates
             .filter((candidate) => eligibleAssessments.has(candidate.version_id))
-            .slice(0, 5)
+            .sort(
+              (left, right) =>
+                (rankByVersion.get(left.version_id) ?? 9) -
+                (rankByVersion.get(right.version_id) ?? 9),
+            )
+            .slice(0, 12)
             .map((candidate) => candidate.id)
-          setRecentScholarshipIds(targetIds)
+          // Only replace remembered matches when this turn actually produced matches, so a
+          // follow-up message never erases what the student is referring to.
+          if (targetIds.length > 0) setRecentScholarshipIds(targetIds)
           reply = { kind: 'discovery', data }
         }
         setTurns((current) => current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)))
@@ -657,7 +787,7 @@ export function EligibilityAssistant() {
         setLoading(false)
       }
     },
-    [scholarshipId, recentScholarshipIds, performApplication, user?.preferred_language, facts],
+    [scholarshipId, performApplication, user?.preferred_language, facts],
   )
 
   useEffect(() => {
@@ -700,19 +830,42 @@ export function EligibilityAssistant() {
             </button>
           </header>
 
-          {!scholarshipId && factPills.length > 0 && (
+          {factPills.length > 0 && (
             <div className="ai-fact-strip" aria-label="Details being used">
               <span className="ai-fact-strip-label">Your profile</span>
               <div className="ai-fact-scroll">
                 {factPills.map((pill) => <span className="ai-fact-pill" key={pill}>{pill}</span>)}
               </div>
-              <button className="ai-fact-clear" type="button" onClick={() => { setFacts({}); setRecentScholarshipIds([]) }}>Clear</button>
+              <button
+                className="ai-fact-clear"
+                type="button"
+                onClick={() => {
+                  setFacts({ ...profileFactsRef.current })
+                  setRecentScholarshipIds([])
+                }}
+              >
+                Clear
+              </button>
             </div>
           )}
 
           <div className="ai-transcript" ref={transcriptRef} role="log" aria-live="polite">
             <div className="ai-welcome">
-              <strong>Hello, how can I help you?</strong>
+              {hasProfileFacts ? (
+                <>
+                  <strong>
+                    {user?.display_alias ? `Hello ${user.display_alias},` : 'Hello,'} I already have
+                    your saved profile details.
+                  </strong>
+                  <p>
+                    I will use {factPills.slice(0, 4).join(', ')}
+                    {factPills.length > 4 ? ` and ${factPills.length - 4} more` : ''}. You do not
+                    need to type them again.
+                  </p>
+                </>
+              ) : (
+                <strong>Hello, how can I help you?</strong>
+              )}
             </div>
 
             {turns.map((turn) => (
@@ -744,10 +897,35 @@ export function EligibilityAssistant() {
             {error && <p className="ai-error" role="alert">{error}</p>}
           </div>
 
+          {!loading && (applyQueue.length > 0 || retryIds.length > 0) && (
+            <div className="ai-suggestions" aria-label="Continue applying">
+              {retryIds.length > 0 && (
+                <button type="button" onClick={() => void performApplication(retryIds)}>
+                  Finish {retryIds.length === 1 ? 'it' : `those ${retryIds.length}`} with my details
+                </button>
+              )}
+              {applyQueue.length > 0 && (
+                <button type="button" onClick={() => void performApplication(applyQueue)}>
+                  Continue with the next {Math.min(applyQueue.length, APPLY_WAVE_SIZE)}
+                </button>
+              )}
+            </div>
+          )}
+
           {!loading && (liveSuggestions.length > 0 || turns.length === 0) && (
             <div className="ai-suggestions" aria-label="Suggested messages">
               {(liveSuggestions.length > 0 ? liveSuggestions : openingSuggestions).slice(0, 3).map((suggestion) => (
-                <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() =>
+                    scholarshipId && suggestion === APPLY_SUGGESTION
+                      ? void performApplication([scholarshipId], suggestion)
+                      : void send(suggestion)
+                  }
+                >
+                  {suggestion}
+                </button>
               ))}
             </div>
           )}
