@@ -191,7 +191,14 @@ const bindingLabels: Record<string, string> = {
   course_year: 'study year',
   marks_percentage: 'marks percentage',
   family_income_range: 'family income range',
+  // Legacy provider templates can report the raw form key instead of a profile binding.
+  academic_score: 'marks percentage',
+  domicile_state: 'State or UT',
+  family_income_band: 'family income range',
 }
+
+/** Set when an apply request needs sign-in, so the resumed result is shown in chat. */
+const APPLY_RESUME_KEY = 'scholarsaathi:resume-apply-in-chat'
 
 /** Chat-stated values for one submission. Never written to the student profile. */
 function conversationFieldsFromFacts(facts: KnownFacts): ConversationFieldValues {
@@ -556,6 +563,10 @@ export function EligibilityAssistant() {
     const handleResumed = (event: Event) => {
       const result = (event as CustomEvent<ApplicationIntentBatchResponse>).detail
       if (!result?.items.length) return
+      // Only report a resumed workflow when the student asked to apply and was sent to
+      // sign in. Opening the assistant otherwise must not dump earlier pending requests.
+      if (sessionStorage.getItem(APPLY_RESUME_KEY) !== '1') return
+      sessionStorage.removeItem(APPLY_RESUME_KEY)
       setTurns((current) => [
         ...current,
         { id: nextId.current++, reply: { kind: 'application', data: result } },
@@ -647,6 +658,9 @@ export function EligibilityAssistant() {
           ),
         )
         setApplyQueue(remaining)
+        if (data.items.some((item) => item.outcome === 'AUTH_REQUIRED')) {
+          sessionStorage.setItem(APPLY_RESUME_KEY, '1')
+        }
 
         // Anything still missing is asked for in chat. The student answers here and the
         // retry reuses those values for the submission without touching their profile.

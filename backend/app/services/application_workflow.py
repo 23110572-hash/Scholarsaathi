@@ -39,6 +39,7 @@ from app.services.application_validation import (
     load_decrypted_application_answers,
     profile_value_for_field,
     required_document_types,
+    resolved_profile_binding,
     upsert_encrypted_answer,
     valid_student_documents,
 )
@@ -371,12 +372,13 @@ class _ApplicationRuntime:
                 field,
                 explicitly_authorized=True,
             )
-            if not field_value_is_valid(field, value) and field.profile_binding:
-                supplied = self.supplied_values.get(field.profile_binding)
+            binding = resolved_profile_binding(field)
+            if not field_value_is_valid(field, value) and binding:
+                supplied = self.supplied_values.get(binding)
                 if supplied is not None and field_value_is_valid(field, supplied):
                     value = supplied
             if field.required and not field_value_is_valid(field, value):
-                missing_profile.append(field.profile_binding or field.field_key)
+                missing_profile.append(binding or field.field_key)
             elif field_value_is_valid(field, value):
                 self.field_values[field.id] = value
 

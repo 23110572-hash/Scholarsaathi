@@ -26,6 +26,7 @@ from app.models import (
     StudentDocumentType,
     StudentSetting,
 )
+from app.services.application_templates import PROFILE_BINDINGS_BY_FIELD_KEY
 
 _WILDCARD_OPTIONS = {"ALL", "ALL_UNDERGRADUATE", "ALL_RECOGNIZED_COURSES", "STEM"}
 
@@ -40,13 +41,23 @@ def is_nonblank(value: Any) -> bool:
     return True
 
 
+def resolved_profile_binding(field: ApplicationTemplateField) -> str | None:
+    """Profile attribute this field reads, falling back to the field key mapping.
+
+    Templates stored before a binding was recorded keep ``profile_binding`` empty. Without
+    this fallback such a field can never be filled from the student profile, so a complete
+    profile is still reported as missing.
+    """
+    return field.profile_binding or PROFILE_BINDINGS_BY_FIELD_KEY.get(field.field_key)
+
+
 def profile_value_for_field(
     setting: StudentSetting | None,
     field: ApplicationTemplateField,
     *,
     explicitly_authorized: bool,
 ) -> Any:
-    binding = field.profile_binding
+    binding = resolved_profile_binding(field)
     if binding == "explicit_apply_authorization" or field.field_key == "student_declaration":
         return explicitly_authorized
     if setting is None or not binding:
