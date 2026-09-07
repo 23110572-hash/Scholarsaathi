@@ -23,13 +23,7 @@
 }
 
 * { box-sizing: border-box; }
-html {
-  scroll-behavior: smooth;
-  /* Always reserve the scrollbar gutter. Without this, moving between a scrolling page
-     and the full-height home hero changes the viewport width, which re-centres the
-     layout and looks like the background shifting sideways. */
-  scrollbar-gutter: stable;
-}
+html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--cream); }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }

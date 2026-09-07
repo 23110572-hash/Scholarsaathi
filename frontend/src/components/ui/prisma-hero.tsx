@@ -4,8 +4,11 @@ import { SiteNavigation } from '@/components/SiteNavigation'
 
 /* ---------------- Hero ---------------- */
 export const PrismaHero = () => {
+  // Width is pinned to the viewport rather than the content box. The content box narrows
+  // while a scrollbar is present, which rescaled the object-cover video and looked like
+  // the background sliding sideways on arrival.
   return (
-    <section className="h-[100dvh] w-full bg-black">
+    <section className="h-[100dvh] w-screen overflow-hidden bg-black">
       <div className="relative h-full w-full overflow-hidden">
 
         {/* Background video. Width and height are declared so the frame is laid out
