@@ -200,6 +200,18 @@ const bindingLabels: Record<string, string> = {
 /** Set when an apply request needs sign-in, so the resumed result is shown in chat. */
 const APPLY_RESUME_KEY = 'scholarsaathi:resume-apply-in-chat'
 
+/** Which known fact answers a provider form binding the workflow reported as missing. */
+const bindingFactKeys: Record<string, keyof KnownFacts> = {
+  state_code: 'state',
+  domicile_state: 'state',
+  course: 'course',
+  course_year: 'course_year',
+  marks_percentage: 'marks_percentage',
+  academic_score: 'marks_percentage',
+  family_income_range: 'family_income_range',
+  family_income_band: 'family_income_range',
+}
+
 /** Chat-stated values for one submission. Never written to the student profile. */
 function conversationFieldsFromFacts(facts: KnownFacts): ConversationFieldValues {
   return {
@@ -452,6 +464,9 @@ export function EligibilityAssistant() {
   const [retryIds, setRetryIds] = useState<string[]>([])
   const profileFactsRef = useRef<KnownFacts>({})
   const [hasProfileFacts, setHasProfileFacts] = useState(false)
+  const factsRef = useRef<KnownFacts>({})
+  const retryIdsRef = useRef<string[]>([])
+  const neededBindingsRef = useRef<string[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingLabel, setLoadingLabel] = useState('Thinking…')
   const [error, setError] = useState('')
@@ -505,6 +520,14 @@ export function EligibilityAssistant() {
     turnsRef.current = turns
   }, [turns])
 
+  useEffect(() => {
+    factsRef.current = facts
+  }, [facts])
+
+  useEffect(() => {
+    retryIdsRef.current = retryIds
+  }, [retryIds])
+
   // Reset only when the assistant changes context (catalog vs a specific scholarship).
   // Filter or query changes must not erase the running conversation.
   useEffect(() => {
@@ -516,7 +539,11 @@ export function EligibilityAssistant() {
     turnsRef.current = []
     setApplyQueue([])
     setRetryIds([])
-    setFacts({ ...profileFactsRef.current, ...factsFromLocation(location.search) })
+    retryIdsRef.current = []
+    neededBindingsRef.current = []
+    const baseFacts = { ...profileFactsRef.current, ...factsFromLocation(location.search) }
+    factsRef.current = baseFacts
+    setFacts(baseFacts)
     speech.abort()
   }, [routeKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -536,7 +563,11 @@ export function EligibilityAssistant() {
         const profileFacts = factsFromProfile(profile)
         profileFactsRef.current = profileFacts
         setHasProfileFacts(Object.keys(profileFacts).length > 0)
-        setFacts((current) => ({ ...profileFacts, ...current }))
+        setFacts((current) => {
+          const merged = { ...profileFacts, ...current }
+          factsRef.current = merged
+          return merged
+        })
       })
       .catch(() => undefined)
     return () => {
@@ -597,7 +628,7 @@ export function EligibilityAssistant() {
   }, [open, turns, loading])
 
   const performApplication = useCallback(
-    async (ids: string[], question?: string) => {
+    async (ids: string[], question?: string, factsOverride?: KnownFacts) => {
       if (ids.length === 0) {
         const id = nextId.current++
         setTurns((current) => [
@@ -647,7 +678,9 @@ export function EligibilityAssistant() {
           method: 'POST',
           body: JSON.stringify({
             scholarship_ids: wave,
-            conversation_fields: conversationFieldsFromFacts(facts),
+            // Read from the override or the ref, never from a captured render value: the
+            // detail the student just typed must reach this request in the same tick.
+            conversation_fields: conversationFieldsFromFacts(factsOverride ?? factsRef.current),
             explicit_apply_authorization: true,
             authorization_source: 'ASSISTANT_EXPLICIT_APPLY',
           }),
@@ -668,7 +701,10 @@ export function EligibilityAssistant() {
         const needed = Array.from(
           new Set(blocked.flatMap((item) => item.missing_profile_fields)),
         )
-        setRetryIds(blocked.map((item) => item.scholarship_id))
+        const blockedIds = blocked.map((item) => item.scholarship_id)
+        setRetryIds(blockedIds)
+        retryIdsRef.current = blockedIds
+        neededBindingsRef.current = needed
         if (needed.length > 0) {
           setTurns((current) => [
             ...current,
@@ -691,7 +727,7 @@ export function EligibilityAssistant() {
         setLoading(false)
       }
     },
-    [user?.realm, facts],
+    [user?.realm],
   )
 
   const send = useCallback(
@@ -751,15 +787,40 @@ export function EligibilityAssistant() {
             method: 'POST',
             body: JSON.stringify(payload),
           })
-          setFacts((current) => mergeFacts(current, data.extracted))
+          // Merge synchronously so this turn's detail is available immediately, instead of
+          // waiting for the next render.
+          const nextFacts = mergeFacts(factsRef.current, data.extracted)
+          factsRef.current = nextFacts
+          setFacts(nextFacts)
 
-          // The model decided this turn is an instruction to apply. Act on the matches
-          // already shown in this conversation instead of asking the student to repeat.
+          const waitingIds = retryIdsRef.current
+          const suppliedNeeded = neededBindingsRef.current.some((binding) => {
+            const factKey = bindingFactKeys[binding]
+            return factKey !== undefined && nextFacts[factKey] !== undefined
+          })
+
+          // Applications are already waiting on a detail and the student just gave it, so
+          // finish those rather than starting anything new. This is driven by workflow
+          // state and the model's extracted facts, not by reading the student's wording.
+          if (waitingIds.length > 0 && suppliedNeeded) {
+            loadingRef.current = false
+            setLoading(false)
+            setTurns((current) => current.filter((turn) => turn.id !== id))
+            await performApplication(waitingIds, message, nextFacts)
+            return
+          }
+
+          // The model decided this turn is an instruction to apply. Prefer applications
+          // already waiting on this student before opening new ones.
           if (data.intent === 'APPLY_REQUEST') {
             loadingRef.current = false
             setLoading(false)
             setTurns((current) => current.filter((turn) => turn.id !== id))
-            await performApplication(recentScholarshipIdsRef.current, message)
+            await performApplication(
+              waitingIds.length > 0 ? waitingIds : recentScholarshipIdsRef.current,
+              message,
+              nextFacts,
+            )
             return
           }
 
