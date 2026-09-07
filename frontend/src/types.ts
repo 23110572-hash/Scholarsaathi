@@ -258,7 +258,7 @@ export interface ApplicationDetail {
   consent_recorded_at: string | null
   submitted_at: string | null
   fields: ApplicationField[]
-  answered_field_ids: string[]
+  answers: Record<string, unknown>
   events: Array<{
     event_type: string
     safe_message: string

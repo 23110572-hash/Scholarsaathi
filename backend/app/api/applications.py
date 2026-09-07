@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,6 @@ from app.dependencies import (
 )
 from app.models import (
     Application,
-    ApplicationAnswer,
     ApplicationDocument,
     ApplicationEvent,
     ApplicationStatus,
@@ -96,12 +95,14 @@ def _student_application_row(
     ).one_or_none()
 
 
-def _application_detail(
+def _student_application_detail(
     db: Session,
     application: Application,
     scholarship: Scholarship,
     version: ScholarshipVersion,
     organization: Organization,
+    *,
+    answers: dict[uuid.UUID, object],
 ) -> ApplicationDetailResponse:
     template = db.scalar(
         select(ApplicationTemplate).where(
@@ -118,13 +119,6 @@ def _application_detail(
         )
         .order_by(ApplicationTemplateField.sort_order)
     ).all()
-    answered_field_ids = list(
-        db.scalars(
-            select(ApplicationAnswer.field_id).where(
-                ApplicationAnswer.application_id == application.id
-            )
-        ).all()
-    )
     documents = db.scalars(
         select(ApplicationDocument)
         .where(ApplicationDocument.application_id == application.id)
@@ -178,7 +172,7 @@ def _application_detail(
             )
             for document in documents
         ],
-        answered_field_ids=answered_field_ids,
+        answers=answers,
         events=[
             ApplicationEventResponse(
                 event_type=event.event_type,
@@ -327,13 +321,22 @@ def list_student_applications(
 @router.get("/applications/{application_id}", response_model=ApplicationDetailResponse)
 def application_detail(
     application_id: uuid.UUID,
+    response: Response,
     auth: AuthContext = Depends(require_student),
     db: Session = Depends(get_db),
 ) -> ApplicationDetailResponse:
     row = _student_application_row(db, application_id, auth.account.id)
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application was not found")
-    return _application_detail(db, *row)
+    application = row[0]
+    answers = load_decrypted_application_answers(
+        db,
+        application.id,
+        settings.app_secret_key.get_secret_value(),
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Pragma"] = "no-cache"
+    return _student_application_detail(db, *row, answers=answers)
 
 
 @router.put("/applications/{application_id}/answers", response_model=MessageResponse)

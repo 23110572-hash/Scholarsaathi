@@ -317,7 +317,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .application-form label > span { font-size: .8rem; }
 .application-form label small { color: var(--muted); font-weight: 400; line-height: 1.4; }
 .application-form label sup { margin-left: .35rem; color: var(--orange); font-size: .55rem; text-transform: uppercase; }
-.application-form label em { color: var(--green); font-size: .6rem; font-style: normal; }
 .checkbox-field { grid-template-columns: auto 1fr; align-items: center; }
 .checkbox-field > span, .checkbox-field > small { grid-column: 2; }
 .checkbox-field input { width: 1.2rem; height: 1.2rem; grid-row: 1 / 4; }
@@ -3379,4 +3378,93 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
     height: 5.5rem;
     min-width: 5.5rem;
   }
+}
+
+/* Application detail — readable, calm, and consistent with the student workspace */
+.application-page {
+  min-height: calc(100vh - 72px);
+  padding-top: 4rem;
+  padding-bottom: 6rem;
+  color: #17283d;
+}
+.application-page .back-link { font-size: .95rem; font-weight: 700; }
+.application-page .application-header { margin-bottom: 2rem; }
+.application-page .application-header h1 { max-width: 920px; line-height: 1.05; }
+.application-page .application-header > div > p:last-child { margin: .65rem 0 0; color: #526579; font-size: 1.05rem; }
+.application-page .large-status { padding: .65rem .9rem; font-size: .76rem; letter-spacing: .07em; }
+
+.application-page .privacy-warning {
+  padding: 1.25rem 1.35rem;
+  margin: 0;
+  color: #5a431f;
+  background: #fff8e8;
+  border: 1px solid #ead7ac;
+  border-radius: .9rem;
+  font-size: 1rem;
+  box-shadow: 0 8px 24px rgba(70, 54, 26, .05);
+}
+.application-page .privacy-warning svg { width: 1.45rem; height: 1.45rem; color: #a36719; }
+.application-page .privacy-warning strong { font-size: 1.05rem; }
+.application-page .privacy-warning p { margin-top: .35rem; color: #725b35; font-size: .92rem; line-height: 1.65; }
+
+.application-page .application-layout { margin-top: 1.5rem; grid-template-columns: minmax(0, 1fr) 390px; gap: 1.5rem; }
+.application-page .application-form {
+  padding: clamp(1.5rem, 3vw, 2.35rem);
+  background: #fff;
+  border: 1px solid #d9e0e6;
+  border-radius: 1rem;
+  box-shadow: 0 18px 48px rgba(30, 51, 72, .06);
+}
+.application-page .form-section-title { padding: 0 0 1.35rem; gap: 1rem; }
+.application-page .form-section-title > span { width: 2.65rem; height: 2.65rem; background: #1b5e85; font-size: .82rem; }
+.application-page .form-section-title h2 { color: #17283d; font-size: 1.45rem; line-height: 1.25; }
+.application-page .form-section-title p { margin-top: .35rem; color: #647487; font-size: .92rem; line-height: 1.55; }
+.application-values-note { padding: .9rem 1rem; margin: 1.2rem 0 .25rem; color: #34556d; background: #edf6fb; border: 1px solid #d3e6f1; border-radius: .65rem; font-size: .92rem; line-height: 1.55; }
+
+.application-page .application-form > label { padding: 1.2rem 0; border-bottom: 1px solid #e5e9ed; gap: .55rem; }
+.application-page .application-form > label:last-of-type { border-bottom: 0; }
+.application-page .application-form label > span { color: #1b2d42; font-size: 1.04rem; font-weight: 800; }
+.application-page .application-form label small { color: #667789; font-size: .9rem; font-weight: 400; line-height: 1.55; }
+.application-page .application-form label sup { margin-left: .45rem; color: #9d541d; font-size: .7rem; letter-spacing: .04em; }
+.application-page .application-form input,
+.application-page .application-form select,
+.application-page .application-form textarea { min-height: 3.15rem; padding: .82rem 1rem; color: #17283d; border-color: #c8d2dc; border-radius: .65rem; font-size: 1rem; }
+.application-page .application-form select[multiple] { min-height: 8rem; }
+.application-page .application-form input:disabled,
+.application-page .application-form select:disabled,
+.application-page .application-form textarea:disabled { color: #24384c; background: #f4f7f9; border-color: #d7dfe6; opacity: 1; cursor: default; -webkit-text-fill-color: #24384c; }
+.application-page .checkbox-field input { width: 1.45rem; height: 1.45rem; min-height: 0; accent-color: #1b5e85; }
+.application-page .application-actions { padding-top: 1.35rem; gap: .85rem; }
+.application-page .application-actions .button { min-height: 3rem; padding-inline: 1.25rem; font-size: .95rem; }
+
+.application-page .timeline-card {
+  padding: 1.65rem;
+  color: #17283d;
+  background: #f1f6fa;
+  border: 1px solid #d4e0e9;
+  border-radius: 1rem;
+  box-shadow: 0 18px 48px rgba(30, 51, 72, .06);
+}
+.application-page .timeline-card .section-kicker { color: #1b648f; font-size: .76rem; }
+.application-page .timeline-card h2 { margin: .55rem 0 1.45rem; color: #17283d; font-size: 1.55rem; line-height: 1.25; }
+.application-page .timeline-card ol { margin: 0; }
+.application-page .timeline-card li { padding-bottom: 1.55rem; grid-template-columns: 20px 1fr; gap: .8rem; }
+.application-page .timeline-card li i { width: 11px; height: 11px; margin-top: .25rem; background: #2b789f; }
+.application-page .timeline-card li i::after { top: 14px; left: 5px; height: calc(100% + 1.1rem); background: #bdd1de; }
+.application-page .timeline-card li strong { color: #1b2d42; font-size: .96rem; line-height: 1.35; }
+.application-page .timeline-card li p { margin: .4rem 0; color: #52677a; font-size: .9rem; line-height: 1.6; }
+.application-page .timeline-card time { color: #718293; font-size: .78rem; }
+.application-page .timeline-note { padding-top: 1rem; margin-top: .25rem; color: #52677a; border-top: 1px solid #d4e0e9; font-size: .86rem; line-height: 1.55; }
+
+@media (max-width: 1050px) {
+  .application-page .application-layout { grid-template-columns: 1fr; }
+  .application-page .timeline-card { width: 100%; }
+}
+
+@media (max-width: 760px) {
+  .application-page { padding-top: 2.5rem; }
+  .application-page .privacy-warning { padding: 1rem; }
+  .application-page .application-form,
+  .application-page .timeline-card { padding: 1.25rem; }
+  .application-page .form-section-title h2 { font-size: 1.25rem; }
 }

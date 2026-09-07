@@ -592,7 +592,7 @@ class ApplicationDetailResponse(APIModel):
     fields: list[ApplicationFieldResponse]
     required_document_types: list[StudentDocumentType]
     documents: list[ApplicationDocumentResponse]
-    answered_field_ids: list[uuid.UUID]
+    answers: dict[uuid.UUID, Any]
     events: list[ApplicationEventResponse]
 
 

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, matchPath, useLocation } from 'react-router-dom'
 import { SiteBrand, SiteNavigation } from './SiteNavigation'
 
 export function Layout({ children }: PropsWithChildren) {
@@ -7,7 +7,10 @@ export function Layout({ children }: PropsWithChildren) {
   const isHome = location.pathname === '/'
   const isProvider = location.pathname === '/providers'
   const isOrganization = location.pathname.startsWith('/organization')
-  const showFooter = !isHome && !isProvider && !isOrganization && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
+  const isApplicationDetail = Boolean(
+    matchPath('/applications/:applicationId', location.pathname),
+  )
+  const showFooter = !isHome && !isProvider && !isOrganization && !isApplicationDetail && !location.pathname.startsWith('/scholarships') && !location.pathname.startsWith('/login') && !location.pathname.startsWith('/student')
 
   return (
     <div className="site-shell">
