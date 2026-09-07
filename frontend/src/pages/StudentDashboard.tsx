@@ -178,7 +178,18 @@ export function StudentDashboard() {
     }
   }
 
-  const displayedScholarships = discovery?.candidates ?? catalog
+  const actionableVersions = new Set(
+    discovery?.assessments
+      .filter(
+        (assessment) =>
+          assessment.assessment === 'LIKELY_ELIGIBLE' ||
+          assessment.assessment === 'POSSIBLY_ELIGIBLE_NEEDS_INFORMATION',
+      )
+      .map((assessment) => assessment.scholarship_version_id) ?? [],
+  )
+  const displayedScholarships = discovery
+    ? discovery.candidates.filter((candidate) => actionableVersions.has(candidate.version_id))
+    : catalog
   const greeting = user?.display_alias?.replace(/\s*\([^)]*\)\s*$/, '') ?? 'student'
   const completeness = studentProfile?.completeness ?? 0
   const profileInitial = (studentProfile?.full_name || studentProfile?.display_alias || greeting)
@@ -295,8 +306,8 @@ export function StudentDashboard() {
               </div>
               <p>
                 {completeness === 100
-                  ? 'Your profile is complete. Searches use it automatically.'
-                  : `${completeness}% complete. Add your state, course, marks, and photo.`}
+                  ? 'Your discovery profile is complete. Individual applications may still require provider-specific answers or documents.'
+                  : `${completeness}% of your discovery profile is complete. Add your state, course, marks, and photo.`}
               </p>
               <span className="modern-profile-side-cta">
                 {completeness === 100 ? 'Review profile' : 'Complete profile'} <ArrowIcon />

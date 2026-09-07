@@ -51,6 +51,7 @@ from app.services.application_validation import (
     invalid_required_field_keys,
     load_decrypted_application_answers,
     required_document_types,
+    resolved_profile_binding,
     upsert_encrypted_answer,
     valid_student_documents,
 )
@@ -153,7 +154,10 @@ def _application_detail(
                 field_type=field.field_type,
                 required=field.required,
                 options=field.options_json,
-                profile_binding=field.profile_binding,
+                profile_binding=resolved_profile_binding(field),
+                numeric_min=(float(field.numeric_min) if field.numeric_min is not None else None),
+                numeric_max=(float(field.numeric_max) if field.numeric_max is not None else None),
+                numeric_step=(float(field.numeric_step) if field.numeric_step is not None else None),
                 sort_order=field.sort_order,
             )
             for field in fields
@@ -378,7 +382,13 @@ def update_application_answers(
 
     encryption_key = settings.app_secret_key.get_secret_value()
     for field_id, value in payload.answers.items():
-        upsert_encrypted_answer(db, application, field_id, value, encryption_key)
+        upsert_encrypted_answer(
+            db,
+            application,
+            fields_by_id[field_id],
+            value,
+            encryption_key,
+        )
 
     application.status = ApplicationStatus.READY_FOR_STUDENT_REVIEW
     db.commit()

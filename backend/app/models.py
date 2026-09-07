@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -816,6 +817,9 @@ class ApplicationTemplateField(Base):
     required: Mapped[bool] = mapped_column(Boolean, nullable=False)
     options_json: Mapped[list[str] | None] = mapped_column(JSONB)
     profile_binding: Mapped[str | None] = mapped_column(String(80))
+    numeric_min: Mapped[Decimal | None] = mapped_column(Numeric)
+    numeric_max: Mapped[Decimal | None] = mapped_column(Numeric)
+    numeric_step: Mapped[Decimal | None] = mapped_column(Numeric)
     source_chunk_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
 

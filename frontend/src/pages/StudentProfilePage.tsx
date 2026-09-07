@@ -351,7 +351,7 @@ export function StudentProfilePage() {
 
             <div className="modern-profile-progress" aria-live="polite">
               <div className="modern-profile-progress-bar"><div className="modern-profile-progress-fill" style={{ width: `${completeness}%` }} /></div>
-              <small>{completeness}% complete</small>
+              <small>{completeness}% of your reusable discovery profile complete</small>
             </div>
 
             <h2 className="modern-profile-legend">Personal details</h2>

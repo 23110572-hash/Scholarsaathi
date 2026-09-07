@@ -666,6 +666,9 @@ def seed_database() -> None:
                     ApplicationFieldType.SELECT,
                     True,
                     spec["courses"],
+                    None,
+                    None,
+                    None,
                 ),
                 (
                     "course_year",
@@ -674,6 +677,9 @@ def seed_database() -> None:
                     ApplicationFieldType.NUMBER,
                     True,
                     None,
+                    1,
+                    12,
+                    1,
                 ),
                 (
                     "domicile_state",
@@ -682,6 +688,9 @@ def seed_database() -> None:
                     ApplicationFieldType.SELECT,
                     True,
                     spec["states"] if spec["states"] != ["ALL"] else ["OD", "MH", "KA", "WB", "DL"],
+                    None,
+                    None,
+                    None,
                 ),
                 (
                     "family_income_band",
@@ -696,6 +705,9 @@ def seed_database() -> None:
                         "600001_TO_800000",
                         "ABOVE_800000",
                     ],
+                    None,
+                    None,
+                    None,
                 ),
                 (
                     "academic_score",
@@ -704,6 +716,9 @@ def seed_database() -> None:
                     ApplicationFieldType.NUMBER,
                     True,
                     None,
+                    0,
+                    100,
+                    0.01,
                 ),
                 (
                     "student_declaration",
@@ -712,11 +727,24 @@ def seed_database() -> None:
                     ApplicationFieldType.CHECKBOX,
                     True,
                     None,
+                    None,
+                    None,
+                    None,
                 ),
             ]
 
             for order, field in enumerate(field_specs, start=1):
-                key, label, help_text, field_type, required, options = field
+                (
+                    key,
+                    label,
+                    help_text,
+                    field_type,
+                    required,
+                    options,
+                    numeric_min,
+                    numeric_max,
+                    numeric_step,
+                ) = field
                 session.add(
                     ApplicationTemplateField(
                         domain=domain,
@@ -731,6 +759,9 @@ def seed_database() -> None:
                         required=required,
                         options_json=options,
                         profile_binding=PROFILE_BINDINGS_BY_FIELD_KEY.get(key),
+                        numeric_min=numeric_min,
+                        numeric_max=numeric_max,
+                        numeric_step=numeric_step,
                         source_chunk_id=first_chunk_ids[slug],
                         sort_order=order,
                     )

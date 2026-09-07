@@ -28,6 +28,7 @@ from app.schemas import (
     ScholarshipListResponse,
     SourceExcerpt,
 )
+from app.services.application_validation import resolved_profile_binding
 
 router = APIRouter(prefix="/api", tags=["scholarships"])
 
@@ -180,7 +181,10 @@ def scholarship_detail(
                 field_type=field.field_type,
                 required=field.required,
                 options=field.options_json,
-                profile_binding=field.profile_binding,
+                profile_binding=resolved_profile_binding(field),
+                numeric_min=(float(field.numeric_min) if field.numeric_min is not None else None),
+                numeric_max=(float(field.numeric_max) if field.numeric_max is not None else None),
+                numeric_step=(float(field.numeric_step) if field.numeric_step is not None else None),
                 sort_order=field.sort_order,
             )
             for field in fields

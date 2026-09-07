@@ -23,7 +23,15 @@ logger = logging.getLogger(__name__)
 FACT_EXTRACTION_RULES = """
 Fill 'extracted' with ONLY the eligibility facts the student actually stated in their own message
 on this turn. Leave a field null when it was not mentioned. Never guess and never copy a value from
-facts that were already known. Use these encodings:
+facts that were already known.
+
+One exception: when your own previous turn in 'conversation_history' asked the student for a specific
+detail, treat a short reply as the answer to exactly that question and record it in the matching
+field. A bare number, a percentage, a year, a state name, or a single word is a direct answer, not a
+guess. For example, if you asked for their marks percentage and they reply "90", set
+marks_percentage to 90. Only apply this to the detail you actually asked for.
+
+Use these encodings:
 - state: the 2-letter Indian State or UT code, for example OD for Odisha, MH for Maharashtra.
 - gender: one of FEMALE, MALE, NON_BINARY, PREFER_NOT_TO_SAY when explicitly stated.
 - education_level: one of DIPLOMA, UNDERGRADUATE, POSTGRADUATE, DOCTORAL, CLASS_11_12.

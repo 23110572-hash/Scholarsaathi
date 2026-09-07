@@ -201,6 +201,9 @@ class ApplicationFieldResponse(APIModel):
     required: bool
     options: list[str] | None
     profile_binding: str | None
+    numeric_min: float | None
+    numeric_max: float | None
+    numeric_step: float | None
     sort_order: int
 
 
@@ -694,7 +697,7 @@ class ApplicationIntentBatchResponse(APIModel):
 
 
 class ScholarshipQuestionRequest(APIModel):
-    question: str = Field(min_length=3, max_length=1200)
+    question: str = Field(min_length=1, max_length=1200)
     preferred_language: str = Field(default="en", min_length=2, max_length=10)
 
 

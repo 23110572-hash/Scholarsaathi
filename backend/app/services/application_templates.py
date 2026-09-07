@@ -36,6 +36,9 @@ class DefaultFieldDefinition:
     help_text: str
     field_type: ApplicationFieldType
     profile_binding: str
+    numeric_min: float | None = None
+    numeric_max: float | None = None
+    numeric_step: float | None = None
 
 
 DEFAULT_FIELD_DEFINITIONS = (
@@ -52,6 +55,9 @@ DEFAULT_FIELD_DEFINITIONS = (
         help_text="Current year of study.",
         field_type=ApplicationFieldType.NUMBER,
         profile_binding="course_year",
+        numeric_min=1,
+        numeric_max=12,
+        numeric_step=1,
     ),
     DefaultFieldDefinition(
         key="domicile_state",
@@ -73,6 +79,9 @@ DEFAULT_FIELD_DEFINITIONS = (
         help_text="Current marks percentage from the reusable student profile.",
         field_type=ApplicationFieldType.NUMBER,
         profile_binding="marks_percentage",
+        numeric_min=0,
+        numeric_max=100,
+        numeric_step=0.01,
     ),
     DefaultFieldDefinition(
         key="student_declaration",
@@ -143,6 +152,9 @@ def create_default_application_template(
                 required=True,
                 options_json=option_sets.get(definition.key),
                 profile_binding=definition.profile_binding,
+                numeric_min=definition.numeric_min,
+                numeric_max=definition.numeric_max,
+                numeric_step=definition.numeric_step,
                 source_chunk_id=source_chunk_id,
                 sort_order=sort_order,
             )

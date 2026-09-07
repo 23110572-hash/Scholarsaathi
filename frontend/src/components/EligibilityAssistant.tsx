@@ -184,6 +184,12 @@ function factsFromLocation(search: string): KnownFacts {
 const APPLY_SUGGESTION = 'Apply for this scholarship'
 const APPLY_WAVE_SIZE = 3
 
+type PendingApplication = {
+  intentId: string
+  scholarshipId: string
+  missingFields: string[]
+}
+
 /** Provider form bindings the workflow reports as missing, in student-facing words. */
 const bindingLabels: Record<string, string> = {
   state_code: 'State or UT',
@@ -276,8 +282,17 @@ function DiscoveryReply({
   const assessmentByVersion = new Map(
     data.assessments.map((assessment) => [assessment.scholarship_version_id, assessment]),
   )
+  // Only surface scholarships that actually look like a match. Listing verdicts such as
+  // "probably not a match" gave students results they cannot use.
   const results = data.candidates
-    .filter((scholarship) => assessmentByVersion.has(scholarship.version_id))
+    .filter((scholarship) => {
+      const assessment = assessmentByVersion.get(scholarship.version_id)
+      return (
+        assessment !== undefined &&
+        (assessment.assessment === 'LIKELY_ELIGIBLE' ||
+          assessment.assessment === 'POSSIBLY_ELIGIBLE_NEEDS_INFORMATION')
+      )
+    })
     .map((scholarship) => ({
       scholarship,
       assessment: assessmentByVersion.get(scholarship.version_id)!,
@@ -286,7 +301,6 @@ function DiscoveryReply({
       (left, right) =>
         assessmentRank[left.assessment.assessment] - assessmentRank[right.assessment.assessment],
     )
-  const fallbackCandidates = results.length === 0 ? data.candidates.slice(0, 4) : []
 
   return (
     <div className="ai-reply-content">
@@ -322,27 +336,8 @@ function DiscoveryReply({
             </article>
           ))}
         </div>
-      ) : fallbackCandidates.length > 0 ? (
-        <div className="ai-match-list">
-          {fallbackCandidates.map((scholarship) => (
-            <article className="ai-match-card" key={scholarship.id}>
-              <div className="ai-match-card-topline">
-                <span className="ai-assessment">Catalog match</span>
-                {scholarship.application_deadline_at && (
-                  <small>{new Date(scholarship.application_deadline_at).toLocaleDateString('en-IN')}</small>
-                )}
-              </div>
-              <h3>{scholarship.title}</h3>
-              <small>{scholarship.organization.display_name}</small>
-              <p>{scholarship.summary}</p>
-              <div className="ai-result-actions">
-                <Link to={`/scholarships/${scholarship.id}`}>Review details</Link>
-              </div>
-            </article>
-          ))}
-        </div>
       ) : (
-        <p>I need a little more information before I can suggest a reliable match.</p>
+        <p>No likely or possible matches were found from the published rules for the details currently available.</p>
       )}
       {data.requested_details.length > 0 && (
         <p className="ai-detail-request">
@@ -379,7 +374,7 @@ function intentAction(item: ApplicationIntentResponse) {
   if (item.outcome === 'PROFILE_REQUIRED' || item.outcome === 'DOCUMENTS_REQUIRED') {
     return {
       to: item.outcome === 'DOCUMENTS_REQUIRED' ? '/student/profile#documents' : '/student/profile',
-      label: item.outcome === 'DOCUMENTS_REQUIRED' ? 'Upload documents' : 'Complete profile',
+      label: item.outcome === 'DOCUMENTS_REQUIRED' ? 'Upload documents' : 'Save to reusable profile',
       icon: <FileText size={15} />,
     }
   }
@@ -388,6 +383,13 @@ function intentAction(item: ApplicationIntentResponse) {
       to: `/applications/${item.application_id}`,
       label: 'Track application',
       icon: <CheckCircle2 size={15} />,
+    }
+  }
+  if (item.next_path) {
+    return {
+      to: item.next_path,
+      label: item.outcome === 'EXPIRED' ? 'Start a new request' : 'Review scholarship',
+      icon: <AlertCircle size={15} />,
     }
   }
   return null
@@ -411,8 +413,10 @@ function ApplicationReply({ data, returnPath }: { data: ApplicationIntentBatchRe
             <h3>{item.scholarship_title}</h3>
             {item.missing_profile_fields.length > 0 && (
               <p>
-                <strong>Profile needed:</strong>{' '}
-                {item.missing_profile_fields.map(titleCase).join(', ')}
+                <strong>Application information needed:</strong>{' '}
+                {item.missing_profile_fields
+                  .map((field) => bindingLabels[field] ?? titleCase(field))
+                  .join(', ')}
               </p>
             )}
             {item.missing_document_types.length > 0 && (
@@ -445,7 +449,6 @@ export function EligibilityAssistant() {
   const isCatalog = location.pathname === '/scholarships'
   const scholarshipId = detailMatch?.params.scholarshipId
   const isVisible = isCatalog || Boolean(scholarshipId)
-  const routeKey = scholarshipId ? `detail-${scholarshipId}` : isCatalog ? 'catalog' : 'hidden'
   const {
     open,
     closeAssistant: closePanel,
@@ -467,6 +470,10 @@ export function EligibilityAssistant() {
   const factsRef = useRef<KnownFacts>({})
   const retryIdsRef = useRef<string[]>([])
   const neededBindingsRef = useRef<string[]>([])
+  const pendingApplicationsRef = useRef<Record<string, PendingApplication>>({})
+  const sessionOwnerRef = useRef<string | null>(
+    user ? `${user.realm}:${user.id}` : null,
+  )
   const [loading, setLoading] = useState(false)
   const [loadingLabel, setLoadingLabel] = useState('Thinking…')
   const [error, setError] = useState('')
@@ -528,8 +535,30 @@ export function EligibilityAssistant() {
     retryIdsRef.current = retryIds
   }, [retryIds])
 
-  // Reset only when the assistant changes context (catalog vs a specific scholarship).
-  // Filter or query changes must not erase the running conversation.
+  const syncPendingApplications = useCallback((items: ApplicationIntentResponse[]) => {
+    const next = { ...pendingApplicationsRef.current }
+    items.forEach((item) => {
+      if (item.outcome === 'PROFILE_REQUIRED') {
+        next[item.intent_id] = {
+          intentId: item.intent_id,
+          scholarshipId: item.scholarship_id,
+          missingFields: item.missing_profile_fields,
+        }
+      } else {
+        delete next[item.intent_id]
+      }
+    })
+    pendingApplicationsRef.current = next
+    const pending = Object.values(next)
+    const scholarshipIds = Array.from(new Set(pending.map((item) => item.scholarshipId)))
+    const needed = Array.from(new Set(pending.flatMap((item) => item.missingFields)))
+    retryIdsRef.current = scholarshipIds
+    neededBindingsRef.current = needed
+    setRetryIds(scholarshipIds)
+  }, [])
+
+  // Keep one assistant session while the student moves between catalog, scholarship,
+  // profile, and login routes. The component may be hidden, but its transcript stays intact.
   useEffect(() => {
     setDraft('')
     setTurns([])
@@ -541,11 +570,40 @@ export function EligibilityAssistant() {
     setRetryIds([])
     retryIdsRef.current = []
     neededBindingsRef.current = []
+    pendingApplicationsRef.current = {}
     const baseFacts = { ...profileFactsRef.current, ...factsFromLocation(location.search) }
     factsRef.current = baseFacts
     setFacts(baseFacts)
     speech.abort()
-  }, [routeKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preserve history across navigation, but never across authenticated identities.
+  // Anonymous-to-first-login keeps the current apply conversation; logout or a direct
+  // account switch clears every student-specific value before another account can use it.
+  useEffect(() => {
+    const nextOwner = user ? `${user.realm}:${user.id}` : null
+    const previousOwner = sessionOwnerRef.current
+    if (previousOwner && previousOwner !== nextOwner) {
+      setDraft('')
+      setTurns([])
+      turnsRef.current = []
+      setRecentScholarshipIds([])
+      recentScholarshipIdsRef.current = []
+      setApplyQueue([])
+      setRetryIds([])
+      retryIdsRef.current = []
+      neededBindingsRef.current = []
+      pendingApplicationsRef.current = {}
+      profileFactsRef.current = {}
+      setHasProfileFacts(false)
+      const baseFacts = factsFromLocation(location.search)
+      factsRef.current = baseFacts
+      setFacts(baseFacts)
+      sessionStorage.removeItem(APPLY_RESUME_KEY)
+      speech.abort()
+    }
+    sessionOwnerRef.current = nextOwner
+  }, [user?.id, user?.realm]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A signed-in student's stored profile is the baseline for every turn. It is refetched
   // when the panel opens so profile edits are picked up, and kept in a ref so switching
@@ -598,6 +656,7 @@ export function EligibilityAssistant() {
       // sign in. Opening the assistant otherwise must not dump earlier pending requests.
       if (sessionStorage.getItem(APPLY_RESUME_KEY) !== '1') return
       sessionStorage.removeItem(APPLY_RESUME_KEY)
+      syncPendingApplications(result.items)
       setTurns((current) => [
         ...current,
         { id: nextId.current++, reply: { kind: 'application', data: result } },
@@ -605,7 +664,7 @@ export function EligibilityAssistant() {
     }
     window.addEventListener(APPLICATION_INTENTS_RESUMED_EVENT, handleResumed)
     return () => window.removeEventListener(APPLICATION_INTENTS_RESUMED_EVENT, handleResumed)
-  }, [])
+  }, [syncPendingApplications])
 
   useEffect(() => {
     if (!open) return
@@ -652,6 +711,7 @@ export function EligibilityAssistant() {
       // long batch, and so every wave carries its own explicit authorization.
       const wave = ids.slice(0, APPLY_WAVE_SIZE)
       const remaining = ids.slice(APPLY_WAVE_SIZE)
+      setApplyQueue((current) => current.filter((scholarshipId) => !wave.includes(scholarshipId)))
       const id = nextId.current++
       setTurns((current) => [
         ...current,
@@ -690,21 +750,20 @@ export function EligibilityAssistant() {
             turn.id === id ? { ...turn, reply: { kind: 'application', data } } : turn,
           ),
         )
-        setApplyQueue(remaining)
+        if (remaining.length > 0) {
+          setApplyQueue((current) => Array.from(new Set([...current, ...remaining])))
+        }
+        syncPendingApplications(data.items)
         if (data.items.some((item) => item.outcome === 'AUTH_REQUIRED')) {
           sessionStorage.setItem(APPLY_RESUME_KEY, '1')
         }
 
-        // Anything still missing is asked for in chat. The student answers here and the
-        // retry reuses those values for the submission without touching their profile.
+        // Ask only for this wave's unresolved application fields. The durable map keeps
+        // earlier blocked intents separate, so another wave cannot orphan or merge them.
         const blocked = data.items.filter((item) => item.outcome === 'PROFILE_REQUIRED')
         const needed = Array.from(
           new Set(blocked.flatMap((item) => item.missing_profile_fields)),
         )
-        const blockedIds = blocked.map((item) => item.scholarship_id)
-        setRetryIds(blockedIds)
-        retryIdsRef.current = blockedIds
-        neededBindingsRef.current = needed
         if (needed.length > 0) {
           setTurns((current) => [
             ...current,
@@ -714,7 +773,7 @@ export function EligibilityAssistant() {
                 kind: 'notice',
                 message: `To finish ${blocked.length === 1 ? 'this application' : `these ${blocked.length} applications`} I still need your ${needed
                   .map((field) => bindingLabels[field] ?? titleCase(field))
-                  .join(', ')}. Tell me here in chat and I will complete ${blocked.length === 1 ? 'it' : 'them'}.`,
+                  .join(', ')}. Tell me here in chat and I will use it only for ${blocked.length === 1 ? 'this application' : 'those applications'}.`,
               },
             },
           ])
@@ -727,17 +786,13 @@ export function EligibilityAssistant() {
         setLoading(false)
       }
     },
-    [user?.realm],
+    [syncPendingApplications, user?.realm],
   )
 
   const send = useCallback(
     async (rawMessage: string) => {
       const message = rawMessage.trim()
       if (!message || loadingRef.current) return
-      if (scholarshipId && message.length < 3) {
-        setError('Please enter at least three characters for a scholarship question.')
-        return
-      }
       if (containsSensitiveInformation(message)) {
         const id = nextId.current++
         setTurns((current) => [
@@ -763,9 +818,108 @@ export function EligibilityAssistant() {
       setLoadingLabel(scholarshipId ? 'Checking the provider source…' : 'Searching scholarships…')
 
       try {
+        // Every typed turn first goes through the session-aware chat model. On a
+        // scholarship page this classifies apply/follow-up intent before ordinary
+        // provider-grounded questions are sent to the evidence Q&A endpoint.
+        const payload: DiscoveryProfile = {
+          ...factsRef.current,
+          history: buildHistory(turnsRef.current),
+          message,
+          preferred_language: user?.preferred_language ?? 'en',
+        }
+        const data = await api<DiscoveryResponse>('/api/ai/discover', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        const nextFacts = mergeFacts(factsRef.current, data.extracted)
+        const providedBindings = new Set<string>()
+        if (data.extracted?.state) {
+          providedBindings.add('state_code')
+          providedBindings.add('domicile_state')
+        }
+        if (data.extracted?.course) providedBindings.add('course')
+        if (data.extracted?.course_year !== null && data.extracted?.course_year !== undefined) {
+          providedBindings.add('course_year')
+        }
+        if (data.extracted?.marks_percentage !== null && data.extracted?.marks_percentage !== undefined) {
+          providedBindings.add('marks_percentage')
+          providedBindings.add('academic_score')
+        }
+        if (data.extracted?.family_income_range) {
+          providedBindings.add('family_income_range')
+          providedBindings.add('family_income_band')
+        }
+
+        // A bare number is unambiguous only when all pending applications are waiting
+        // for the same numeric binding. This is slot filling, not intent classification.
+        const pending = Object.values(pendingApplicationsRef.current)
+        const missingBindings = Array.from(
+          new Set(pending.flatMap((application) => application.missingFields)),
+        )
+        if (missingBindings.length === 1) {
+          const binding = missingBindings[0]
+          if (binding) {
+            const awaited = bindingFactKeys[binding]
+            const numericMatch = message.match(/^\d+(?:\.\d+)?%?$/)
+            if (
+              (awaited === 'marks_percentage' || awaited === 'course_year') &&
+              numericMatch
+            ) {
+              const parsed = Number(numericMatch[0].replace('%', ''))
+              const withinRange =
+                awaited === 'marks_percentage'
+                  ? parsed >= 0 && parsed <= 100
+                  : Number.isInteger(parsed) && parsed >= 1 && parsed <= 12
+              if (withinRange) {
+                if (awaited === 'marks_percentage') nextFacts.marks_percentage = parsed
+                else nextFacts.course_year = parsed
+                providedBindings.add(binding)
+              }
+            }
+          }
+        }
+        factsRef.current = nextFacts
+        setFacts(nextFacts)
+
+        const retryTargets = Array.from(
+          new Set(
+            pending
+              .filter((application) =>
+                application.missingFields.some((field) => providedBindings.has(field)),
+              )
+              .map((application) => application.scholarshipId),
+          ),
+        )
+        if (retryTargets.length > 0) {
+          loadingRef.current = false
+          setLoading(false)
+          setTurns((current) => current.filter((turn) => turn.id !== id))
+          await performApplication(retryTargets, message, nextFacts)
+          return
+        }
+
+        if (data.intent === 'APPLY_REQUEST') {
+          const waitingIds = Array.from(
+            new Set(pending.map((application) => application.scholarshipId)),
+          )
+          loadingRef.current = false
+          setLoading(false)
+          setTurns((current) => current.filter((turn) => turn.id !== id))
+          await performApplication(
+            waitingIds.length > 0
+              ? waitingIds
+              : scholarshipId
+                ? [scholarshipId]
+                : recentScholarshipIdsRef.current,
+            message,
+            nextFacts,
+          )
+          return
+        }
+
         let reply: AssistantReply
         if (scholarshipId) {
-          const data = await api<ScholarshipQuestionResponse>(
+          const question = await api<ScholarshipQuestionResponse>(
             `/api/ai/scholarships/${scholarshipId}/questions`,
             {
               method: 'POST',
@@ -775,58 +929,15 @@ export function EligibilityAssistant() {
               }),
             },
           )
-          reply = { kind: 'question', data }
+          reply = { kind: 'question', data: question }
         } else {
-          const payload: DiscoveryProfile = {
-            ...facts,
-            history: buildHistory(turnsRef.current),
-            message,
-            preferred_language: user?.preferred_language ?? 'en',
-          }
-          const data = await api<DiscoveryResponse>('/api/ai/discover', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
-          // Merge synchronously so this turn's detail is available immediately, instead of
-          // waiting for the next render.
-          const nextFacts = mergeFacts(factsRef.current, data.extracted)
-          factsRef.current = nextFacts
-          setFacts(nextFacts)
-
-          const waitingIds = retryIdsRef.current
-          const suppliedNeeded = neededBindingsRef.current.some((binding) => {
-            const factKey = bindingFactKeys[binding]
-            return factKey !== undefined && nextFacts[factKey] !== undefined
-          })
-
-          // Applications are already waiting on a detail and the student just gave it, so
-          // finish those rather than starting anything new. This is driven by workflow
-          // state and the model's extracted facts, not by reading the student's wording.
-          if (waitingIds.length > 0 && suppliedNeeded) {
-            loadingRef.current = false
-            setLoading(false)
-            setTurns((current) => current.filter((turn) => turn.id !== id))
-            await performApplication(waitingIds, message, nextFacts)
-            return
-          }
-
-          // The model decided this turn is an instruction to apply. Prefer applications
-          // already waiting on this student before opening new ones.
-          if (data.intent === 'APPLY_REQUEST') {
-            loadingRef.current = false
-            setLoading(false)
-            setTurns((current) => current.filter((turn) => turn.id !== id))
-            await performApplication(
-              waitingIds.length > 0 ? waitingIds : recentScholarshipIdsRef.current,
-              message,
-              nextFacts,
-            )
-            return
-          }
-
-          const eligibleAssessments = new Set(
+          const actionableAssessments = new Set(
             data.assessments
-              .filter((item) => item.assessment !== 'LIKELY_NOT_ELIGIBLE')
+              .filter(
+                (item) =>
+                  item.assessment === 'LIKELY_ELIGIBLE' ||
+                  item.assessment === 'POSSIBLY_ELIGIBLE_NEEDS_INFORMATION',
+              )
               .map((item) => item.scholarship_version_id),
           )
           const rankByVersion = new Map(
@@ -835,9 +946,8 @@ export function EligibilityAssistant() {
               assessmentRank[item.assessment],
             ]),
           )
-          // Strongest matches first so an "apply to all" wave starts with the best 3.
           const targetIds = data.candidates
-            .filter((candidate) => eligibleAssessments.has(candidate.version_id))
+            .filter((candidate) => actionableAssessments.has(candidate.version_id))
             .sort(
               (left, right) =>
                 (rankByVersion.get(left.version_id) ?? 9) -
@@ -845,9 +955,10 @@ export function EligibilityAssistant() {
             )
             .slice(0, 12)
             .map((candidate) => candidate.id)
-          // Only replace remembered matches when this turn actually produced matches, so a
-          // follow-up message never erases what the student is referring to.
-          if (targetIds.length > 0) setRecentScholarshipIds(targetIds)
+          if (data.mode === 'ASSESSMENT' || data.intent === 'SCHOLARSHIP_SEARCH') {
+            recentScholarshipIdsRef.current = targetIds
+            setRecentScholarshipIds(targetIds)
+          }
           reply = { kind: 'discovery', data }
         }
         setTurns((current) => current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)))
@@ -880,7 +991,7 @@ export function EligibilityAssistant() {
     launcherRef.current?.focus()
   }
 
-  const canSend = !loading && !speech.listening && draft.trim().length >= (scholarshipId ? 3 : 2)
+  const canSend = !loading && !speech.listening && draft.trim().length >= 1
   const returnPath = `${location.pathname}${location.search}${location.hash}`
 
   return (

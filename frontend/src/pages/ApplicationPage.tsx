@@ -18,7 +18,22 @@ function FieldInput({ field, value, onChange }: { field: ApplicationField; value
   if (field.field_type === 'TEXTAREA') {
     return <textarea rows={4} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} required={field.required} />
   }
-  return <input type={field.field_type === 'NUMBER' ? 'number' : field.field_type === 'DATE' ? 'date' : 'text'} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} required={field.required} />
+  if (field.field_type === 'NUMBER') {
+    return (
+      <input
+        type="number"
+        value={String(value ?? '')}
+        min={field.numeric_min ?? undefined}
+        max={field.numeric_max ?? undefined}
+        step={field.numeric_step ?? 'any'}
+        onChange={(event) =>
+          onChange(event.target.value === '' ? '' : Number(event.target.value))
+        }
+        required={field.required}
+      />
+    )
+  }
+  return <input type={field.field_type === 'DATE' ? 'date' : 'text'} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} required={field.required} />
 }
 
 export function ApplicationPage() {

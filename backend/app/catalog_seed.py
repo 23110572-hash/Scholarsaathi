@@ -865,6 +865,9 @@ def reconcile_reference_catalog(
                     required=True,
                     options_json=option_sets.get(definition.key),
                     profile_binding=definition.profile_binding,
+                    numeric_min=definition.numeric_min,
+                    numeric_max=definition.numeric_max,
+                    numeric_step=definition.numeric_step,
                     source_chunk_id=chunk_ids_by_slug[slug][0],
                     sort_order=sort_order,
                 )
@@ -882,6 +885,9 @@ def reconcile_reference_catalog(
                     required=True,
                     options_json=option_sets.get(definition.key),
                     profile_binding=definition.profile_binding,
+                    numeric_min=definition.numeric_min,
+                    numeric_max=definition.numeric_max,
+                    numeric_step=definition.numeric_step,
                     source_chunk_id=chunk_ids_by_slug[slug][0],
                     sort_order=sort_order,
                 )

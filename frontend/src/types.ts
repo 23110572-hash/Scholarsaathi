@@ -131,6 +131,10 @@ export interface ApplicationField {
   field_type: 'TEXT' | 'NUMBER' | 'DATE' | 'SELECT' | 'MULTISELECT' | 'CHECKBOX' | 'TEXTAREA'
   required: boolean
   options: string[] | null
+  profile_binding: string | null
+  numeric_min: number | null
+  numeric_max: number | null
+  numeric_step: number | null
   sort_order: number
 }
 

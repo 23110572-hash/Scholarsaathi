@@ -4,7 +4,7 @@ import json
 import uuid
 from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -42,12 +42,7 @@ def is_nonblank(value: Any) -> bool:
 
 
 def resolved_profile_binding(field: ApplicationTemplateField) -> str | None:
-    """Profile attribute this field reads, falling back to the field key mapping.
-
-    Templates stored before a binding was recorded keep ``profile_binding`` empty. Without
-    this fallback such a field can never be filled from the student profile, so a complete
-    profile is still reported as missing.
-    """
+    """Return the reusable profile attribute for current and legacy templates."""
     return field.profile_binding or PROFILE_BINDINGS_BY_FIELD_KEY.get(field.field_key)
 
 
@@ -65,6 +60,53 @@ def profile_value_for_field(
     return getattr(setting, binding, None)
 
 
+def _decimal_value(value: Any) -> Decimal | None:
+    """Convert a JSON-compatible numeric value without accepting bool or non-finite values."""
+    if isinstance(value, bool):
+        return None
+    try:
+        if isinstance(value, Decimal):
+            number = value
+        elif isinstance(value, int):
+            number = Decimal(value)
+        elif isinstance(value, float):
+            number = Decimal(str(value))
+        elif isinstance(value, str) and value.strip():
+            number = Decimal(value.strip())
+        else:
+            return None
+    except (DecimalException, ValueError):
+        return None
+    if not number.is_finite():
+        return None
+    # Keep arithmetic and JSON conversion bounded even for compact inputs such as
+    # "1e1000000". Provider forms have no legitimate need for unbounded precision.
+    _sign, digits, exponent = number.as_tuple()
+    if len(digits) > 100 or abs(exponent) > 308 or abs(number.adjusted()) > 308:
+        return None
+    return number
+
+
+def _number_is_valid(field: ApplicationTemplateField, value: Any) -> bool:
+    number = _decimal_value(value)
+    if number is None:
+        return False
+    try:
+        if field.numeric_min is not None and number < field.numeric_min:
+            return False
+        if field.numeric_max is not None and number > field.numeric_max:
+            return False
+        if field.numeric_step is not None:
+            if field.numeric_step <= 0:
+                return False
+            origin = field.numeric_min or Decimal(0)
+            if (number - origin) % field.numeric_step != 0:
+                return False
+    except DecimalException:
+        return False
+    return True
+
+
 def field_value_is_valid(field: ApplicationTemplateField, value: Any) -> bool:
     if not is_nonblank(value):
         return not field.required
@@ -72,7 +114,7 @@ def field_value_is_valid(field: ApplicationTemplateField, value: Any) -> bool:
     if field.field_type in {ApplicationFieldType.TEXT, ApplicationFieldType.TEXTAREA}:
         return isinstance(value, str) and bool(value.strip())
     if field.field_type == ApplicationFieldType.NUMBER:
-        return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
+        return _number_is_valid(field, value)
     if field.field_type == ApplicationFieldType.DATE:
         if isinstance(value, (date, datetime)):
             return True
@@ -101,12 +143,41 @@ def field_value_is_valid(field: ApplicationTemplateField, value: Any) -> bool:
     return False
 
 
+def normalize_application_field_value(field: ApplicationTemplateField, value: Any) -> Any:
+    """Return the canonical JSON value stored in an encrypted application answer."""
+    if not field_value_is_valid(field, value):
+        raise ValueError(f"Invalid value for application field {field.field_key}")
+    if not is_nonblank(value):
+        return None
+    if field.field_type == ApplicationFieldType.NUMBER:
+        number = _decimal_value(value)
+        assert number is not None
+        if number == number.to_integral_value():
+            return int(number)
+        return float(number)
+    if field.field_type == ApplicationFieldType.DATE:
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        return value.strip()
+    if field.field_type in {
+        ApplicationFieldType.TEXT,
+        ApplicationFieldType.TEXTAREA,
+        ApplicationFieldType.SELECT,
+    }:
+        return value.strip()
+    if field.field_type == ApplicationFieldType.MULTISELECT:
+        return [str(item).strip() for item in value if is_nonblank(item)]
+    return value
+
+
 def invalid_required_field_keys(
     fields: Iterable[ApplicationTemplateField],
     values: Mapping[uuid.UUID, Any],
 ) -> list[str]:
     return [
-        field.field_key
+        resolved_profile_binding(field) or field.field_key
         for field in fields
         if field.required and not field_value_is_valid(field, values.get(field.id))
     ]
@@ -210,17 +281,18 @@ def load_decrypted_application_answers(
 def upsert_encrypted_answer(
     db: Session,
     application: Application,
-    field_id: uuid.UUID,
+    field: ApplicationTemplateField,
     value: Any,
     encryption_key: str,
 ) -> None:
-    serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
+    normalized = normalize_application_field_value(field, value)
+    serialized = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
     encrypted = func.pgp_sym_encrypt(serialized, encryption_key)
     db.execute(
         insert(ApplicationAnswer)
         .values(
             application_id=application.id,
-            field_id=field_id,
+            field_id=field.id,
             provider_domain=application.provider_domain,
             application_template_id=application.application_template_id,
             encrypted_value=encrypted,

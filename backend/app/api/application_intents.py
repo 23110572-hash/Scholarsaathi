@@ -83,8 +83,8 @@ def _intent_response(
             "Sign in or create a student account to continue this application."
         ),
         ApplicationIntentStatus.WAITING_FOR_PROFILE: (
-            "Complete the listed reusable profile fields; the application will resume "
-            "automatically after you save."
+            "Application information is still needed. The student can answer in chat for "
+            "this application or save it to the reusable profile."
         ),
         ApplicationIntentStatus.WAITING_FOR_DOCUMENTS: (
             "Upload the listed private documents; the application will resume automatically."

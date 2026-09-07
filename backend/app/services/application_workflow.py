@@ -367,16 +367,17 @@ class _ApplicationRuntime:
         setting = self.db.get(StudentSetting, self.intent.student_account_id)
         missing_profile: list[str] = []
         for field in self.fields:
-            value = profile_value_for_field(
-                setting,
-                field,
-                explicitly_authorized=True,
-            )
             binding = resolved_profile_binding(field)
-            if not field_value_is_valid(field, value) and binding:
-                supplied = self.supplied_values.get(binding)
-                if supplied is not None and field_value_is_valid(field, supplied):
-                    value = supplied
+            if binding and binding in self.supplied_values:
+                # Presence is authoritative for this attempt. An invalid current answer
+                # must stay missing rather than silently reviving an older profile value.
+                value = self.supplied_values[binding]
+            else:
+                value = profile_value_for_field(
+                    setting,
+                    field,
+                    explicitly_authorized=True,
+                )
             if field.required and not field_value_is_valid(field, value):
                 missing_profile.append(binding or field.field_key)
             elif field_value_is_valid(field, value):
@@ -520,7 +521,7 @@ class _ApplicationRuntime:
                 upsert_encrypted_answer(
                     self.db,
                     application,
-                    field.id,
+                    field,
                     self.field_values[field.id],
                     encryption_key,
                 )
