@@ -23,7 +23,13 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  /* Always reserve the scrollbar gutter. Without this, moving between a scrolling page
+     and the full-height home hero changes the viewport width, which re-centres the
+     layout and looks like the background shifting sideways. */
+  scrollbar-gutter: stable;
+}
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--cream); }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -1461,67 +1467,6 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   .modern-noise { display: none; }
 }
 
-
-/* Animated tricolor hero stage */
-.hero-frame {
-  background:
-    radial-gradient(58% 70% at 12% 12%, #16336e 0%, transparent 66%),
-    radial-gradient(52% 64% at 88% 18%, #0e2a55 0%, transparent 70%),
-    linear-gradient(168deg, #0b1c3f 0%, #071630 56%, #050f22 100%);
-}
-.hero-tricolor-beams {
-  background:
-    radial-gradient(40% 52% at 16% 20%, rgba(255, 153, 51, .30), transparent 70%),
-    radial-gradient(38% 48% at 76% 26%, rgba(255, 255, 255, .12), transparent 72%),
-    radial-gradient(46% 54% at 58% 92%, rgba(19, 136, 8, .32), transparent 74%);
-  mix-blend-mode: screen;
-}
-.hero-grid-lines {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
-  background-size: 76px 76px, 76px 76px;
-  mask-image: radial-gradient(70% 70% at 40% 45%, #000 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(70% 70% at 40% 45%, #000 0%, transparent 78%);
-}
-.hero-emblem {
-  top: 50%;
-  right: -3rem;
-  width: clamp(16rem, 34vw, 34rem);
-  height: auto;
-  opacity: .13;
-  transform: translateY(-50%);
-  filter: saturate(1.15);
-}
-.hero-tricolor-rule {
-  height: 4px;
-  background: linear-gradient(90deg, #ff9933 0 33.33%, #f7f7f7 33.33% 66.66%, #138808 66.66% 100%);
-}
-.hero-gradient-text {
-  background: linear-gradient(96deg, #ff9933 0%, #ffd9a1 46%, #4caf50 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-.hero-twinkle { animation: hero-twinkle 3.2s ease-in-out infinite; }
-@keyframes hero-twinkle {
-  0%, 100% { opacity: .6; transform: scale(.9); }
-  50% { opacity: 1; transform: scale(1.15); }
-}
-.hero-marquee { animation: hero-marquee 26s linear infinite; }
-@keyframes hero-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@media (max-width: 760px) {
-  .hero-emblem { right: -6rem; opacity: .09; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-twinkle, .hero-marquee { animation: none !important; }
-}
 
 /* Connected modern surface system */
 .simple-catalog, .catalog-page, .workspace-page, .content-page, .application-page, .organization-page, .detail-page, .simple-detail, .portal-home { background: #f2f5ef; }

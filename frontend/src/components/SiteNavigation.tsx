@@ -86,7 +86,9 @@ export function SiteNavigation({ variant = 'shell' }: SiteNavigationProps) {
           {primaryItems.map((item) => <NavLink key={item.to} className={primaryLinkClass} to={item.to} end={item.to === '/'}>{item.label}</NavLink>)}
         </nav>
 
-        <div className="hidden min-w-[9rem] items-center justify-end gap-2 md:flex" aria-label="Account controls">
+        {/* Fixed width, not a minimum: this slot is empty until the session check
+            resolves, and a growing slot would push the centred nav sideways. */}
+        <div className="hidden items-center justify-end gap-2 md:flex md:w-[12rem]" aria-label="Account controls">
           {!loading && user && (
             <>
               <Link className={accountLinkClass} to={destinationForRealm(user.realm)}><LayoutDashboard aria-hidden="true" className="h-4 w-4" />Workspace</Link>

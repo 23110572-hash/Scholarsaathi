@@ -8,21 +8,25 @@ export const PrismaHero = () => {
     <section className="h-[100dvh] w-full bg-black">
       <div className="relative h-full w-full overflow-hidden">
 
-        {/* Background video */}
+        {/* Background video. Width and height are declared so the frame is laid out
+            before metadata arrives, which stops a visible jump on the first paint. */}
         <video
           autoPlay
           loop
           muted
           playsInline
+          preload="auto"
           disablePictureInPicture
+          width={1920}
+          height={1080}
           tabIndex={-1}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center"
           src="/background-video.mp4"
         />
 
-        {/* Noise overlay */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.4] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+        {/* Noise overlay, generated locally so no external asset can load late */}
+        <div className="modern-noise pointer-events-none absolute inset-0 opacity-[0.35] mix-blend-overlay" />
 
         {/* Gradient overlay */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/80" />
