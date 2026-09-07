@@ -4,28 +4,21 @@ import { SiteNavigation } from '@/components/SiteNavigation'
 
 /* ---------------- Hero ---------------- */
 export const PrismaHero = () => {
-  // Width is pinned to the viewport rather than the content box. The content box narrows
-  // while a scrollbar is present, which rescaled the object-cover video and looked like
-  // the background sliding sideways on arrival.
+  // Width is pinned to the viewport rather than the content box so the static
+  // object-cover background does not rescale when the page scrollbar changes.
   return (
     <section className="h-[100dvh] w-screen overflow-hidden bg-black">
       <div className="relative h-full w-full overflow-hidden">
 
-        {/* Background video. Width and height are declared so the frame is laid out
-            before metadata arrives, which stops a visible jump on the first paint. */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          disablePictureInPicture
+        {/* Static home background — no playback, metadata, or motion. */}
+        <img
+          src="/Bcakground.png"
+          alt=""
           width={1920}
           height={1080}
-          tabIndex={-1}
+          draggable={false}
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center"
-          src="/background-video.mp4"
         />
 
         {/* Noise overlay, generated locally so no external asset can load late */}
