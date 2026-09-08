@@ -344,7 +344,7 @@ function DiscoveryReply({
           Tell me your {listDetails(data.requested_details)} to sharpen these matches.
         </p>
       )}
-      <p className="ai-evidence-note">{data.notice}</p>
+      {data.notice && <p className="ai-evidence-note">{data.notice}</p>}
     </div>
   )
 }

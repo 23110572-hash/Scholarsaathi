@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ShieldIcon } from '../components/Icons'
 import { api } from '../lib/api'
 import type { ApplicationDetail, ApplicationField } from '../types'
 
@@ -10,6 +9,17 @@ const EDITABLE_STATUSES = new Set([
   'READY_FOR_STUDENT_REVIEW',
   'CORRECTION_REQUESTED',
 ])
+
+function readableAnswer(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'Not provided'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (Array.isArray(value)) {
+    return value.length > 0
+      ? value.map((item) => String(item).replaceAll('_', ' ')).join(', ')
+      : 'Not provided'
+  }
+  return String(value).replaceAll('_', ' ')
+}
 
 function FieldInput({
   field,
@@ -22,26 +32,41 @@ function FieldInput({
   onChange: (value: unknown) => void
   disabled: boolean
 }) {
+  if (disabled) {
+    return (
+      <div className="application-readonly-value" aria-readonly="true">
+        {readableAnswer(value)}
+      </div>
+    )
+  }
   if (field.field_type === 'CHECKBOX') {
     return (
       <input
         type="checkbox"
         checked={Boolean(value)}
         onChange={(event) => onChange(event.target.checked)}
-        disabled={disabled}
       />
     )
   }
   if (field.field_type === 'SELECT') {
+    const currentValue = String(value ?? '')
+    const options = field.options ?? []
+    const matchingOption = options.find(
+      (option) => option.toLocaleUpperCase() === currentValue.toLocaleUpperCase(),
+    )
+    const selectedValue = matchingOption ?? currentValue
+    const visibleOptions = currentValue && !matchingOption
+      ? [currentValue, ...options]
+      : options
+
     return (
       <select
-        value={String(value ?? '')}
+        value={selectedValue}
         onChange={(event) => onChange(event.target.value)}
         required={field.required}
-        disabled={disabled}
       >
         <option value="">Choose an option</option>
-        {field.options?.map((option) => (
+        {visibleOptions.map((option) => (
           <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
         ))}
       </select>
@@ -49,6 +74,13 @@ function FieldInput({
   }
   if (field.field_type === 'MULTISELECT') {
     const selected = Array.isArray(value) ? value.map(String) : []
+    const options = field.options ?? []
+    const missingOptions = selected.filter(
+      (selectedValue) =>
+        !options.some(
+          (option) => option.toLocaleUpperCase() === selectedValue.toLocaleUpperCase(),
+        ),
+    )
     return (
       <select
         multiple
@@ -57,9 +89,8 @@ function FieldInput({
           onChange(Array.from(event.target.selectedOptions, (option) => option.value))
         }
         required={field.required}
-        disabled={disabled}
       >
-        {field.options?.map((option) => (
+        {[...missingOptions, ...options].map((option) => (
           <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>
         ))}
       </select>
@@ -72,7 +103,6 @@ function FieldInput({
         value={String(value ?? '')}
         onChange={(event) => onChange(event.target.value)}
         required={field.required}
-        disabled={disabled}
       />
     )
   }
@@ -88,7 +118,6 @@ function FieldInput({
           onChange(event.target.value === '' ? '' : Number(event.target.value))
         }
         required={field.required}
-        disabled={disabled}
       />
     )
   }
@@ -98,7 +127,6 @@ function FieldInput({
       value={String(value ?? '')}
       onChange={(event) => onChange(event.target.value)}
       required={field.required}
-      disabled={disabled}
     />
   )
 }
@@ -178,6 +206,7 @@ export function ApplicationPage() {
   }
 
   const editable = EDITABLE_STATUSES.has(application.status)
+  const visibleEvents = application.events.filter((event) => event.event_type !== 'DRAFT_CREATED')
 
   return (
     <main className="application-page section-pad">
@@ -189,18 +218,6 @@ export function ApplicationPage() {
           <p>{application.organization_name}</p>
         </div>
         <span className="large-status">{application.status.replaceAll('_', ' ')}</span>
-      </div>
-
-      <div className="privacy-warning">
-        <ShieldIcon />
-        <div>
-          <strong>Your application information is protected</strong>
-          <p>
-            {editable
-              ? 'Enter only the information requested here. Never enter passwords, OTPs, or government-account credentials.'
-              : 'The values below are the securely stored answers used for this submitted application.'}
-          </p>
-        </div>
       </div>
 
       <div className="application-layout">
@@ -260,16 +277,31 @@ export function ApplicationPage() {
           <p className="section-kicker">Application timeline</p>
           <h2>One status, one place</h2>
           <ol>
-            {application.events.map((event) => (
-              <li key={`${event.event_type}-${event.created_at}`}>
-                <i />
-                <div>
-                  <strong>{event.event_type.replaceAll('_', ' ')}</strong>
-                  <p>{event.safe_message}</p>
-                  <time>{new Date(event.created_at).toLocaleString('en-IN')}</time>
-                </div>
-              </li>
-            ))}
+            {visibleEvents.map((event) => {
+              const eventDate = new Date(event.created_at)
+              const eventDateLabel = eventDate.toLocaleString('en-IN')
+              const isSubmission = event.event_type === 'SUBMITTED'
+              const isResubmission = event.event_type === 'RESUBMITTED'
+              return (
+                <li key={`${event.event_type}-${event.created_at}`}>
+                  <i />
+                  <div>
+                    <strong>{event.event_type.replaceAll('_', ' ')}</strong>
+                    {isSubmission || isResubmission ? (
+                      <p>
+                        Student {isResubmission ? 'reapplied' : 'applied'} for this scholarship on{' '}
+                        <time dateTime={event.created_at}>{eventDateLabel}</time>.
+                      </p>
+                    ) : (
+                      <>
+                        <p>{event.safe_message}</p>
+                        <time dateTime={event.created_at}>{eventDateLabel}</time>
+                      </>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ol>
           <p className="timeline-note">
             Application status is updated by the participating provider.

@@ -478,13 +478,10 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         )
         is not None
     ]
-    notice = (
-        "Matches are calculated from provider-confirmed structured rules and are not official "
-        "eligibility decisions."
-    )
+    notice = ""
     if unstructured_candidates:
         notice = (
-            f"{notice} {len(unstructured_candidates)} scholarship(s) did not publish enough "
+            f"{len(unstructured_candidates)} scholarship(s) did not publish enough "
             "structured rules for a complete automatic check."
         )
 

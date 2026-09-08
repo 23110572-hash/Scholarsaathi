@@ -3481,3 +3481,72 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 @media (max-width: 900px) {
   .modern-profile-actions .modern-workspace-side { grid-template-columns: 1fr; }
 }
+
+/* Student application list and submitted-value clarity */
+.student-applications-page .application-row {
+  min-height: 104px;
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr) 130px auto;
+  gap: 1.25rem;
+}
+.student-applications-page .application-state {
+  display: grid;
+  justify-items: start;
+  gap: .45rem;
+}
+.student-applications-page .application-state .application-status {
+  width: fit-content;
+  max-width: 100%;
+  padding: .4rem .58rem;
+  border-radius: .45rem;
+  font-size: .74rem;
+  line-height: 1.2;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+.student-applications-page .application-state small {
+  color: #52675d;
+  font-size: .82rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.student-applications-page .application-copy { gap: .3rem; }
+.student-applications-page .application-copy strong {
+  color: #17283d;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+.student-applications-page .application-copy small {
+  color: #5f7068;
+  font-size: .88rem;
+  line-height: 1.45;
+}
+.student-applications-page .application-row > time {
+  color: #52675d;
+  font-size: .86rem;
+  line-height: 1.35;
+}
+.student-applications-page .application-row > svg { width: 1.25rem; height: 1.25rem; }
+
+.application-page .application-readonly-value {
+  min-height: 3.15rem;
+  padding: .85rem 1rem;
+  color: #24384c;
+  background: #f4f7f9;
+  border: 1px solid #d7dfe6;
+  border-radius: .65rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.application-page .timeline-card li p time {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .student-applications-page .application-row { grid-template-columns: 1fr; gap: .8rem; }
+  .student-applications-page .application-row > time { display: block; }
+  .student-applications-page .application-row > svg { display: none; }
+}
