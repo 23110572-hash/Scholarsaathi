@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowIcon, BookmarkIcon, SearchIcon, SparkIcon } from '../components/Icons'
 import { ScholarshipCard } from '../components/ScholarshipCard'
@@ -13,70 +12,36 @@ import type {
   StudentProfile,
 } from '../types'
 
-interface SearchProfile {
-  state: string
-  gender: string
-  education_level: string
-  course: string
-  course_year: string
-  marks_percentage: string
-  family_income_range: string
-  categories: string
-  message: string
-}
-
-const emptySearchProfile: SearchProfile = {
-  state: '',
-  gender: '',
-  education_level: '',
-  course: '',
-  course_year: '',
-  marks_percentage: '',
-  family_income_range: '',
-  categories: '',
-  message: '',
-}
-
-/** Seeds the search form from the saved profile so details are entered once, not retyped. */
-function searchProfileFromStudentProfile(profile: StudentProfile): SearchProfile {
+function discoveryRequestFromProfile(profile: StudentProfile, preferredLanguage: string) {
   return {
-    state: profile.state_code ?? '',
-    gender: profile.gender ?? '',
-    education_level: profile.education_level ?? '',
-    course: profile.course ?? '',
-    course_year: profile.course_year === null ? '' : String(profile.course_year),
-    marks_percentage: profile.marks_percentage === null ? '' : String(profile.marks_percentage),
-    family_income_range: profile.family_income_range ?? '',
-    categories: profile.categories.join(', '),
-    message: '',
+    state: profile.state_code ?? undefined,
+    gender: profile.gender ?? undefined,
+    education_level: profile.education_level ?? undefined,
+    course: profile.course ?? undefined,
+    course_year: profile.course_year ?? undefined,
+    marks_percentage: profile.marks_percentage ?? undefined,
+    family_income_range: profile.family_income_range ?? undefined,
+    categories: profile.categories,
+    preferred_language: preferredLanguage,
   }
 }
 
-const STATE_OPTIONS = [
-  { value: 'OD', label: 'Odisha' },
-  { value: 'MH', label: 'Maharashtra' },
-  { value: 'KA', label: 'Karnataka' },
-  { value: 'WB', label: 'West Bengal' },
-  { value: 'DL', label: 'Delhi' },
-]
-
 export function StudentDashboard() {
   const { user } = useAuth()
-  const [profile, setProfile] = useState(emptySearchProfile)
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null)
   const [catalog, setCatalog] = useState<Scholarship[]>([])
   const [saved, setSaved] = useState<Scholarship[]>([])
   const [discovery, setDiscovery] = useState<DiscoveryResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [searching, setSearching] = useState(false)
   const [savingId, setSavingId] = useState('')
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
+
     async function load() {
-      // Each panel degrades independently: a failing saved list should not blank the catalog.
+      // Each panel degrades independently: a failed recommendation request still shows the catalog.
       const [catalogResult, savedResult, profileResult] = await Promise.allSettled([
         api<ScholarshipList>('/api/scholarships?limit=12'),
         api<ScholarshipList>('/api/student/saved-scholarships'),
@@ -93,16 +58,30 @@ export function StudentDashboard() {
         setSaved(savedResult.value.items)
       }
       if (profileResult.status === 'fulfilled') {
-        setStudentProfile(profileResult.value)
-        setProfile(searchProfileFromStudentProfile(profileResult.value))
+        const profile = profileResult.value
+        setStudentProfile(profile)
+        try {
+          const response = await api<DiscoveryResponse>('/api/ai/discover', {
+            method: 'POST',
+            body: JSON.stringify(
+              discoveryRequestFromProfile(profile, user?.preferred_language ?? 'en'),
+            ),
+          })
+          if (cancelled) return
+          setDiscovery(response)
+          setNotice(response.notice)
+        } catch {
+          // Keep the regular catalog visible when personalized discovery is unavailable.
+        }
       }
-      setLoading(false)
+      if (!cancelled) setLoading(false)
     }
+
     void load()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user?.preferred_language])
 
   const assessments = useMemo(() => {
     const map = new Map<string, ScholarshipAssessment>()
@@ -113,41 +92,6 @@ export function StudentDashboard() {
   }, [discovery])
 
   const savedIds = useMemo(() => new Set(saved.map((item) => item.id)), [saved])
-
-  async function handleDiscover(event: FormEvent) {
-    event.preventDefault()
-    setSearching(true)
-    setError('')
-    setNotice('')
-    try {
-      const response = await api<DiscoveryResponse>('/api/ai/discover', {
-        method: 'POST',
-        body: JSON.stringify({
-          message: profile.message.trim() || undefined,
-          state: profile.state || undefined,
-          gender: profile.gender || undefined,
-          education_level: profile.education_level || undefined,
-          course: profile.course || undefined,
-          course_year: profile.course_year ? Number(profile.course_year) : undefined,
-          marks_percentage: profile.marks_percentage
-            ? Number(profile.marks_percentage)
-            : undefined,
-          family_income_range: profile.family_income_range || undefined,
-          categories: profile.categories
-            .split(',')
-            .map((value) => value.trim())
-            .filter(Boolean),
-          preferred_language: user?.preferred_language ?? 'en',
-        }),
-      })
-      setDiscovery(response)
-      setNotice(response.notice)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Search could not be completed')
-    } finally {
-      setSearching(false)
-    }
-  }
 
   async function saveScholarship(scholarshipId: string) {
     setSavingId(scholarshipId)
@@ -205,87 +149,11 @@ export function StudentDashboard() {
           <div>
             <p className="modern-section-kicker">Student workspace</p>
             <h1>Hello, {greeting}.</h1>
-            <p>Use your details to search for scholarships.</p>
+            <p>Your saved profile is used to find scholarships you can review.</p>
           </div>
         </section>
 
-        <section className="modern-discovery-shell section-pad">
-          <div className="modern-assistant-panel modern-glass-card">
-            <div className="modern-assistant-heading">
-              <div><strong>Scholarship search</strong><small>Enter your details below</small></div>
-            </div>
-            <div className="modern-assistant-message">
-              <p>Review each scholarship’s eligibility, deadline, and application instructions before applying.</p>
-            </div>
-            <form className="discovery-form modern-large-form" onSubmit={(event) => void handleDiscover(event)}>
-              <div className="form-grid compact-grid">
-                <label>State / UT
-                  <select value={profile.state} onChange={(e) => setProfile({ ...profile, state: e.target.value })}>
-                    <option value="">Any State or UT</option>
-                    {STATE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                    {profile.state && !STATE_OPTIONS.some((option) => option.value === profile.state) && (
-                      <option value={profile.state}>{profile.state}</option>
-                    )}
-                  </select>
-                </label>
-                <label>Gender
-                  <select value={profile.gender} onChange={(e) => setProfile({ ...profile, gender: e.target.value })}>
-                    <option value="">Any gender</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="MALE">Male</option>
-                    <option value="NON_BINARY">Non-binary</option>
-                    <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
-                  </select>
-                </label>
-                <label>Education level
-                  <select value={profile.education_level} onChange={(e) => setProfile({ ...profile, education_level: e.target.value })}>
-                    <option value="">Any level</option>
-                    <option value="UNDERGRADUATE">Undergraduate</option>
-                    <option value="DIPLOMA">Diploma</option><option value="POSTGRADUATE">Postgraduate</option>
-                  </select>
-                </label>
-                <label>Course
-                  <select value={profile.course} onChange={(e) => setProfile({ ...profile, course: e.target.value })}>
-                    <option value="">Any course</option>
-                    <option value="BTECH">B.Tech</option><option value="BE">B.E.</option>
-                    <option value="TECHNICAL_DIPLOMA">Technical diploma</option><option value="STEM">Other STEM</option>
-                    {profile.course && !['BTECH', 'BE', 'TECHNICAL_DIPLOMA', 'STEM'].includes(profile.course) && (
-                      <option value={profile.course}>{profile.course}</option>
-                    )}
-                  </select>
-                </label>
-                <label>Current year
-                  <input type="number" min="1" max="12" value={profile.course_year} onChange={(e) => setProfile({ ...profile, course_year: e.target.value })} />
-                </label>
-                <label>Latest completed result (%)
-                  <input type="number" min="0" max="100" value={profile.marks_percentage} onChange={(e) => setProfile({ ...profile, marks_percentage: e.target.value })} />
-                </label>
-                <label>Family-income range
-                  <select value={profile.family_income_range} onChange={(e) => setProfile({ ...profile, family_income_range: e.target.value })}>
-                    <option value="">Prefer not to say</option>
-                    <option value="UP_TO_250000">Up to ₹2.5 lakh</option>
-                    <option value="250001_TO_400000">₹2.5–4 lakh</option>
-                    <option value="400001_TO_600000">₹4–6 lakh</option>
-                    <option value="600001_TO_800000">₹6–8 lakh</option>
-                    <option value="ABOVE_800000">Above ₹8 lakh</option>
-                  </select>
-                </label>
-              </div>
-              <label>Optional categories
-                <input placeholder="FIRST_GENERATION, WOMEN" value={profile.categories} onChange={(e) => setProfile({ ...profile, categories: e.target.value })} />
-              </label>
-              <label>What would you like help with?
-                <textarea rows={3} placeholder="Find scholarships for my technical degree." value={profile.message} onChange={(e) => setProfile({ ...profile, message: e.target.value })} />
-              </label>
-              <button className="modern-button-primary button-full" type="submit" disabled={searching}>
-                <SearchIcon /> {searching ? 'Searching scholarships…' : 'Find scholarships'}
-              </button>
-            </form>
-            <p className="modern-sensitive-warning">Do not enter Aadhaar, PAN, bank details, passwords, or OTPs.</p>
-          </div>
-
+        <section className="modern-profile-actions section-pad">
           <aside className="modern-workspace-side">
             <Link className="modern-side-card modern-glass-card modern-profile-side" to="/student/profile">
               <div className="modern-profile-side-head">
@@ -326,14 +194,16 @@ export function StudentDashboard() {
 
         <section className="modern-results-section section-pad" aria-live="polite">
           <div className="modern-results-heading">
-            <div><p className="modern-section-kicker">{discovery ? 'Search results' : 'Scholarships'}</p>
-              <h2>{discovery ? `${displayedScholarships.length} scholarships to review` : 'Browse scholarships'}</h2></div>
+            <div>
+              <p className="modern-section-kicker">Scholarships for you</p>
+              <h2>Browse scholarships according to your profiles</h2>
+            </div>
             <span>{loading ? 'Loading…' : `${displayedScholarships.length} shown`}</span>
           </div>
           {notice && <div className="notice-banner"><SparkIcon /><p>{notice}</p></div>}
           {error && <div className="error-banner" role="alert">{error}</div>}
           {!loading && displayedScholarships.length === 0 ? (
-            <div className="empty-state"><SearchIcon /><h3>No scholarships found</h3><p>Try broadening your course or state information.</p></div>
+            <div className="empty-state"><SearchIcon /><h3>No scholarships found</h3><p>Complete or update your profile to improve your matches.</p></div>
           ) : (
             <div className="scholarship-grid">
               {displayedScholarships.map((scholarship) => (

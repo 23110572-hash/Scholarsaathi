@@ -3468,3 +3468,16 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   .application-page .timeline-card { padding: 1.25rem; }
   .application-page .form-section-title h2 { font-size: 1.25rem; }
 }
+
+/* Student dashboard profile shortcuts after removing the duplicate search form */
+.modern-profile-actions .modern-workspace-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1.5rem;
+}
+.modern-profile-actions .modern-side-card { height: 100%; }
+
+@media (max-width: 900px) {
+  .modern-profile-actions .modern-workspace-side { grid-template-columns: 1fr; }
+}
