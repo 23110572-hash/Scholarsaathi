@@ -329,7 +329,7 @@ function DiscoveryReply({
                 <Link to={`/scholarships/${scholarship.id}`}>View details</Link>
                 {assessment.assessment !== 'LIKELY_NOT_ELIGIBLE' && (
                   <button type="button" onClick={() => onApply(scholarship.id, scholarship.title)}>
-                    Apply with AI
+                    Apply with Agent
                   </button>
                 )}
               </div>

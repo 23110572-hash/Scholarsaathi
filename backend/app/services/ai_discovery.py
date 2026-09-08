@@ -373,9 +373,7 @@ def _conversation_response(
         # a student asking "what did I miss?" always sees the actual outstanding details.
         requested_details=(
             parsed.requested_details
-            or _missing_eligibility_fields(_profile_with_extracted_facts(profile, parsed.extracted))[
-                :3
-            ]
+            or _missing_eligibility_fields(_profile_with_extracted_facts(profile, parsed.extracted))
         ),
         suggested_replies=parsed.suggested_replies,
         extracted=_only_new_extracted_facts(profile, parsed.extracted),
@@ -617,6 +615,8 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             "structured rules for a complete automatic check."
         )
 
+    # Every outstanding detail is requested in one turn. Asking three at a time made the
+    # assistant come back for the remainder immediately afterwards, which read as a loop.
     missing = _missing_eligibility_fields(effective_profile)
 
     return DiscoveryResponse(
@@ -628,7 +628,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         assessments=assessments,
         mode="ASSESSMENT",
         intent="SCHOLARSHIP_SEARCH",
-        requested_details=missing[:3],
+        requested_details=missing,
         suggested_replies=[],
         extracted=turn_extracted,
     )
