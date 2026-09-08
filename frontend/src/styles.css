@@ -3615,3 +3615,20 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+/* Provider workspace lede stays on one line on wide screens, wraps when it cannot fit */
+.provider-workspace-lede {
+  margin: 0;
+  color: #64748b;
+  font-size: 1.2rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .provider-workspace-lede {
+    max-width: 42rem;
+    font-size: 1.1rem;
+    white-space: normal;
+  }
+}

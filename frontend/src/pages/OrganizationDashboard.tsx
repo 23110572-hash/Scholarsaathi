@@ -132,7 +132,7 @@ export function OrganizationDashboard() {
           <div>
             <p className="eyebrow">Organization workspace</p>
             <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', margin: '0.5rem 0 1rem', color: '#0f172a' }}>{organization?.display_name ?? 'Loading organization…'}</h1>
-            <p style={{ color: '#64748b', fontSize: '1.2rem', maxWidth: '600px' }}>Own, confirm, publish, pause, and manage only your organization’s scholarship records.</p>
+            <p className="provider-workspace-lede">Own, confirm, publish, pause, and manage only your organization’s scholarship records.</p>
           </div>
           <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255,255,255,0.6)' }}>
             <div style={{ color: 'var(--green)' }}><BuildingIcon /></div>
@@ -148,19 +148,16 @@ export function OrganizationDashboard() {
 
       <section className="modern-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
         <article className="glass-card modern-hover-lift" style={{ padding: '1.5rem', borderLeft: '4px solid var(--green)' }}>
-          <span style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', marginBottom: '0.5rem' }}>Published knowledge</span>
+          <span style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', marginBottom: '0.5rem' }}>Published Scholarships</span>
           <strong style={{ display: 'block', fontSize: '2.5rem', color: '#0f172a', lineHeight: '1', marginBottom: '0.5rem' }}>{scholarships.filter((item) => item.publication_status === 'PUBLISHED').length}</strong>
-          <small style={{ color: '#64748b', fontSize: '0.95rem' }}>Versions published directly by your organization</small>
         </article>
         <article className="glass-card modern-hover-lift" style={{ padding: '1.5rem', borderLeft: '4px solid var(--orange)' }}>
           <span style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', marginBottom: '0.5rem' }}>Student applications</span>
           <strong style={{ display: 'block', fontSize: '2.5rem', color: '#0f172a', lineHeight: '1', marginBottom: '0.5rem' }}>{applications.length}</strong>
-          <small style={{ color: '#64748b', fontSize: '0.95rem' }}>Separate provider decision workflow</small>
         </article>
         <article className="glass-card modern-hover-lift" style={{ padding: '1.5rem', borderLeft: '4px solid var(--blue)' }}>
           <span style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', marginBottom: '0.5rem' }}>Ownership schema</span>
           <strong style={{ display: 'block', fontSize: '1.5rem', color: '#0f172a', lineHeight: '1.2', margin: '0.5rem 0' }}>{organization?.organization_type.replaceAll('_', ' ') ?? '—'}</strong>
-          <small style={{ color: '#64748b', fontSize: '0.95rem' }}>Strictly isolated to {organization?.ownership_domain ?? 'your organization domain'}</small>
         </article>
       </section>
 
