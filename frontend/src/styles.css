@@ -3632,3 +3632,18 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
     white-space: normal;
   }
 }
+
+/* Assistant profile strip and greeting: slightly larger, easier to read */
+.ai-fact-strip { padding: .58rem .72rem; gap: .48rem; }
+.ai-fact-strip-label { font-size: .68rem; }
+.ai-fact-scroll { gap: .42rem; }
+.ai-fact-pill {
+  min-height: 1.8rem;
+  padding: .28rem .62rem;
+  font-size: .74rem;
+  line-height: 1.15;
+}
+.ai-fact-clear { font-size: .7rem; }
+
+.ai-welcome strong { font-size: 1.1rem; line-height: 1.4; }
+.ai-welcome p { font-size: .82rem; line-height: 1.55; }

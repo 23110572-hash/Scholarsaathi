@@ -1073,8 +1073,7 @@ export function EligibilityAssistant() {
                   </strong>
                   <p>
                     I will use {factPills.slice(0, 4).join(', ')}
-                    {factPills.length > 4 ? ` and ${factPills.length - 4} more` : ''}. You do not
-                    need to type them again.
+                    {factPills.length > 4 ? ` and ${factPills.length - 4} more` : ''}.
                   </p>
                 </>
               ) : (
