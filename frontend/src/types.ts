@@ -224,6 +224,8 @@ export interface DiscoveryResponse {
   /** CONVERSATION turns carry a reply only: no candidates, no assessments. */
   mode: 'CONVERSATION' | 'ASSESSMENT'
   intent: ChatIntent | null
+  /** Which applications an apply request refers to. The client owns the scholarship IDs. */
+  apply_scope: 'ALL_MATCHES' | 'PENDING' | 'CURRENT' | 'UNSPECIFIED'
   requested_details: ChatDetailKey[]
   suggested_replies: string[]
   extracted: ChatExtractedFacts | null

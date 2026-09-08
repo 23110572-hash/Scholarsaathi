@@ -304,6 +304,20 @@ ChatDetailKey = Literal[
 ]
 
 
+# Which applications an apply request refers to. The client owns the scholarship IDs, so the
+# model only reports the scope it heard and never invents an identifier.
+ApplyScope = Literal[
+    # Every eligible match already shown in this conversation.
+    "ALL_MATCHES",
+    # Only the applications currently waiting on the student, such as after an upload.
+    "PENDING",
+    # The single scholarship the student is looking at.
+    "CURRENT",
+    # No apply scope was expressed on this turn.
+    "UNSPECIFIED",
+]
+
+
 class ChatExtractedFacts(APIModel):
     """Eligibility facts the student mentioned in this turn, if any.
 
@@ -343,6 +357,7 @@ class ChatExtractedFacts(APIModel):
 class ScholarshipChatParsed(APIModel):
     intent: ChatIntent
     reply: str
+    apply_scope: ApplyScope = "UNSPECIFIED"
     requested_details: list[ChatDetailKey] = Field(default_factory=list)
     suggested_replies: list[str] = Field(default_factory=list)
     extracted: ChatExtractedFacts
@@ -370,6 +385,7 @@ class DiscoveryResponse(APIModel):
     # greet and gather details without dumping indeterminate scholarship cards.
     mode: DiscoveryMode = "ASSESSMENT"
     intent: ChatIntent | None = None
+    apply_scope: ApplyScope = "UNSPECIFIED"
     requested_details: list[ChatDetailKey] = Field(default_factory=list)
     suggested_replies: list[str] = Field(default_factory=list)
     extracted: ChatExtractedFacts | None = None

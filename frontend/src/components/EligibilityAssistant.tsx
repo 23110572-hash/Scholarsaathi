@@ -182,12 +182,52 @@ function factsFromLocation(search: string): KnownFacts {
 }
 
 const APPLY_SUGGESTION = 'Apply for this scholarship'
-const APPLY_WAVE_SIZE = 3
+
+/** Outcomes that leave an application waiting on the student, so a resume must target it. */
+const BLOCKED_OUTCOMES = new Set(['PROFILE_REQUIRED', 'DOCUMENTS_REQUIRED'])
 
 type PendingApplication = {
   intentId: string
   scholarshipId: string
+  /** Provider form fields still missing. Never document types: these drive slot filling. */
   missingFields: string[]
+  /** Document types the student must upload in their profile before this can resume. */
+  missingDocuments: string[]
+}
+
+/** Wording that unambiguously means every match, kept short so misspellings still hit. */
+const ALL_MATCHES_PATTERN =
+  /\b(?:all|every|each|both|sab|saare|sare|sabhi|bulk|everything)\b|\ball+\b/i
+/** Wording that only confirms a blocked step is finished, so just resume what was waiting. */
+const RESUME_PATTERN =
+  /\b(?:done|dne|uploaded|upload(?:ed)?\s*now|updated|added|attached|complete[d]?|finish(?:ed)?|retry|try\s*again|ho\s*gaya|kar\s*diya|kardiya|hogya)\b/i
+
+/**
+ * Decide which scholarships an apply request covers.
+ *
+ * The model reports the scope it heard; deterministic wording checks are the fallback so a
+ * bare "done" resumes only the blocked applications instead of starting every match, which is
+ * what happened when document-blocked intents were dropped from the pending map.
+ */
+function applyTargets(
+  scope: DiscoveryResponse['apply_scope'],
+  message: string,
+  waitingIds: string[],
+  currentScholarshipId: string | undefined,
+  allMatchedIds: string[],
+): string[] {
+  const everything = Array.from(new Set([...waitingIds, ...allMatchedIds]))
+
+  if (scope === 'ALL_MATCHES') return everything
+  if (scope === 'PENDING' && waitingIds.length > 0) return waitingIds
+  if (scope === 'CURRENT' && currentScholarshipId) return [currentScholarshipId]
+
+  // Scope was UNSPECIFIED or unusable: fall back to the student's own wording.
+  if (ALL_MATCHES_PATTERN.test(message)) return everything
+  if (waitingIds.length > 0 && RESUME_PATTERN.test(message)) return waitingIds
+  if (waitingIds.length > 0) return waitingIds
+  if (currentScholarshipId) return [currentScholarshipId]
+  return allMatchedIds
 }
 
 /** Provider form bindings the workflow reports as missing, in student-facing words. */
@@ -491,7 +531,7 @@ export function EligibilityAssistant() {
   const [stateNames, setStateNames] = useState<Record<string, string>>({})
   const [recentScholarshipIds, setRecentScholarshipIds] = useState<string[]>([])
   const recentScholarshipIdsRef = useRef<string[]>([])
-  const [applyQueue, setApplyQueue] = useState<string[]>([])
+
   const [retryIds, setRetryIds] = useState<string[]>([])
   const profileFactsRef = useRef<KnownFacts>({})
   const [hasProfileFacts, setHasProfileFacts] = useState(false)
@@ -566,11 +606,15 @@ export function EligibilityAssistant() {
   const syncPendingApplications = useCallback((items: ApplicationIntentResponse[]) => {
     const next = { ...pendingApplicationsRef.current }
     items.forEach((item) => {
-      if (item.outcome === 'PROFILE_REQUIRED') {
+      // A document-blocked application is still waiting on this student. Dropping it here
+      // made a later "done" lose its target and fall back to applying for every match.
+      if (BLOCKED_OUTCOMES.has(item.outcome)) {
         next[item.intent_id] = {
           intentId: item.intent_id,
           scholarshipId: item.scholarship_id,
-          missingFields: item.missing_profile_fields,
+          missingFields:
+            item.outcome === 'PROFILE_REQUIRED' ? item.missing_profile_fields : [],
+          missingDocuments: item.missing_document_types,
         }
       } else {
         delete next[item.intent_id]
@@ -594,7 +638,6 @@ export function EligibilityAssistant() {
     setRecentScholarshipIds([])
     recentScholarshipIdsRef.current = []
     turnsRef.current = []
-    setApplyQueue([])
     setRetryIds([])
     retryIdsRef.current = []
     neededBindingsRef.current = []
@@ -617,7 +660,6 @@ export function EligibilityAssistant() {
       turnsRef.current = []
       setRecentScholarshipIds([])
       recentScholarshipIdsRef.current = []
-      setApplyQueue([])
       setRetryIds([])
       retryIdsRef.current = []
       neededBindingsRef.current = []
@@ -735,26 +777,14 @@ export function EligibilityAssistant() {
       if (loadingRef.current) return
       loadingRef.current = true
 
-      // Apply in small waves so the student sees each result instead of waiting on a
-      // long batch, and so every wave carries its own explicit authorization.
-      const wave = ids.slice(0, APPLY_WAVE_SIZE)
-      const remaining = ids.slice(APPLY_WAVE_SIZE)
-      setApplyQueue((current) => current.filter((scholarshipId) => !wave.includes(scholarshipId)))
+      // Apply for exactly what the student authorized, in one request. Splitting this into
+      // waves made a single-scholarship request look like a bulk apply and left the rest
+      // queued behind a follow-up prompt the student never asked for.
+      const targets = Array.from(new Set(ids))
       const id = nextId.current++
       setTurns((current) => [
         ...current,
         ...(question ? [{ id: nextId.current++, question }] : []),
-        ...(remaining.length > 0
-          ? [
-              {
-                id: nextId.current++,
-                reply: {
-                  kind: 'notice' as const,
-                  message: `Starting with the best ${wave.length} matches for your profile. Once these finish I will continue with the remaining ${remaining.length}.`,
-                },
-              },
-            ]
-          : []),
         { id },
       ])
       setDraft('')
@@ -765,7 +795,7 @@ export function EligibilityAssistant() {
         const data = await api<ApplicationIntentBatchResponse>('/api/application-intents', {
           method: 'POST',
           body: JSON.stringify({
-            scholarship_ids: wave,
+            scholarship_ids: targets,
             // Read from the override or the ref, never from a captured render value: the
             // detail the student just typed must reach this request in the same tick.
             conversation_fields: conversationFieldsFromFacts(factsOverride ?? factsRef.current),
@@ -778,16 +808,13 @@ export function EligibilityAssistant() {
             turn.id === id ? { ...turn, reply: { kind: 'application', data } } : turn,
           ),
         )
-        if (remaining.length > 0) {
-          setApplyQueue((current) => Array.from(new Set([...current, ...remaining])))
-        }
         syncPendingApplications(data.items)
         if (data.items.some((item) => item.outcome === 'AUTH_REQUIRED')) {
           sessionStorage.setItem(APPLY_RESUME_KEY, '1')
         }
 
-        // Ask only for this wave's unresolved application fields. The durable map keeps
-        // earlier blocked intents separate, so another wave cannot orphan or merge them.
+        // Ask only for what these applications are actually missing. The durable map keeps
+        // each blocked intent separate, so a resume can never target an unrelated match.
         const blocked = data.items.filter((item) => item.outcome === 'PROFILE_REQUIRED')
         const needed = Array.from(
           new Set(blocked.flatMap((item) => item.missing_profile_fields)),
@@ -802,6 +829,29 @@ export function EligibilityAssistant() {
                 message: `To finish ${blocked.length === 1 ? 'this application' : `these ${blocked.length} applications`} I still need your ${needed
                   .map((field) => bindingLabels[field] ?? titleCase(field))
                   .join(', ')}. Tell me here in chat and I will use it only for ${blocked.length === 1 ? 'this application' : 'those applications'}.`,
+              },
+            },
+          ])
+        }
+
+        const documentBlocked = data.items.filter((item) => item.outcome === 'DOCUMENTS_REQUIRED')
+        const neededDocuments = Array.from(
+          new Set(documentBlocked.flatMap((item) => item.missing_document_types)),
+        )
+        if (neededDocuments.length > 0) {
+          setTurns((current) => [
+            ...current,
+            {
+              id: nextId.current++,
+              reply: {
+                kind: 'notice',
+                message: `Upload ${neededDocuments
+                  .map((type) => documentLabels[type] ?? titleCase(type))
+                  .join(', ')} in your profile, then tell me here that it is done. I will resume ${
+                  documentBlocked.length === 1
+                    ? 'this application'
+                    : `those ${documentBlocked.length} applications`
+                } and nothing else.`,
               },
             },
           ])
@@ -934,11 +984,13 @@ export function EligibilityAssistant() {
           setLoading(false)
           setTurns((current) => current.filter((turn) => turn.id !== id))
           await performApplication(
-            waitingIds.length > 0
-              ? waitingIds
-              : scholarshipId
-                ? [scholarshipId]
-                : recentScholarshipIdsRef.current,
+            applyTargets(
+              data.apply_scope,
+              message,
+              waitingIds,
+              scholarshipId,
+              recentScholarshipIdsRef.current,
+            ),
             message,
             nextFacts,
           )
@@ -1110,18 +1162,11 @@ export function EligibilityAssistant() {
             {error && <p className="ai-error" role="alert">{error}</p>}
           </div>
 
-          {!loading && (applyQueue.length > 0 || retryIds.length > 0) && (
+          {!loading && retryIds.length > 0 && (
             <div className="ai-suggestions" aria-label="Continue applying">
-              {retryIds.length > 0 && (
-                <button type="button" onClick={() => void performApplication(retryIds)}>
-                  Finish {retryIds.length === 1 ? 'it' : `those ${retryIds.length}`} with my details
-                </button>
-              )}
-              {applyQueue.length > 0 && (
-                <button type="button" onClick={() => void performApplication(applyQueue)}>
-                  Continue with the next {Math.min(applyQueue.length, APPLY_WAVE_SIZE)}
-                </button>
-              )}
+              <button type="button" onClick={() => void performApplication(retryIds)}>
+                Retry {retryIds.length === 1 ? 'this application' : `those ${retryIds.length}`}
+              </button>
             </div>
           )}
 

@@ -369,6 +369,7 @@ def _conversation_response(
         assessments=[],
         mode="CONVERSATION",
         intent=parsed.intent,
+        apply_scope=parsed.apply_scope,
         # The model may reply without naming what it still needs. Fall back to the real gaps so
         # a student asking "what did I miss?" always sees the actual outstanding details.
         requested_details=(
