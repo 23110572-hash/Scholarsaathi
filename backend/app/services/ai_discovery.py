@@ -269,6 +269,12 @@ def _conversation_response(
     )
 
 
+# Structured eligibility is evaluated in-process for every candidate, so this cap only
+# bounds response size and evidence loading. The AI slice stays limited separately by
+# ai_discovery_max_candidates and the token budget, so raising this adds no model cost.
+_MAX_DISCOVERY_CANDIDATES = 60
+
+
 def _candidate_query(profile: DiscoveryProfile):
     query = published_scholarship_query()
     if profile.state:
@@ -290,7 +296,9 @@ def _candidate_query(profile: DiscoveryProfile):
         if profile.course in {"STEM", "BTECH", "BE", "BARCH", "BSC"}:
             course_conditions.append(ScholarshipVersion.course_families.any("STEM"))
         query = query.where(or_(*course_conditions))
-    return query.order_by(ScholarshipVersion.application_deadline_at).limit(12)
+    return query.order_by(ScholarshipVersion.application_deadline_at).limit(
+        _MAX_DISCOVERY_CANDIDATES
+    )
 
 
 def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryResponse:

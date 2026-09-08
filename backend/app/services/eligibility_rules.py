@@ -328,14 +328,13 @@ def evaluate_structured_eligibility(
 
 
 def assessment_introduction(assessments: list[ScholarshipAssessment]) -> str:
+    """Introduce the result list without quoting match counts back to the student.
+
+    The card list already shows every eligible scholarship, so a separate tally only
+    repeated what the student can see and went stale whenever the list was filtered.
+    """
     strong = sum(item.assessment == "LIKELY_ELIGIBLE" for item in assessments)
     possible = sum(item.assessment == "POSSIBLY_ELIGIBLE_NEEDS_INFORMATION" for item in assessments)
-    if strong:
-        suffix = f" {possible} more need additional information." if possible else ""
-        return f"I checked the published rules and found {strong} strong match(es).{suffix}"
-    if possible:
-        return (
-            f"I found {possible} possible match(es), but a few more details are needed before "
-            "the published rules can be checked completely."
-        )
+    if strong or possible:
+        return "Here are the scholarships you can apply for, based on the published rules."
     return "I checked your details against the published structured eligibility rules."
