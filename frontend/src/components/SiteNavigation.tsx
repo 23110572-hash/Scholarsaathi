@@ -26,7 +26,7 @@ export function SiteBrand({ compact = false }: SiteBrandProps) {
       {!compact && (
         <span className="grid leading-none">
           <strong className="text-[0.98rem] font-semibold tracking-[-0.035em] text-[#ffffff] drop-shadow-md">ScholarSaathi</strong>
-          <small className="mt-1 text-[0.58rem] font-semibold tracking-[0.14em] uppercase text-[#d9e2dc] drop-shadow-md">Government workflow prototype</small>
+          <small className="mt-1 text-[0.58rem] font-semibold tracking-[0.14em] uppercase text-[#d9e2dc] drop-shadow-md">Government Scholarship Portal</small>
         </span>
       )}
     </Link>
