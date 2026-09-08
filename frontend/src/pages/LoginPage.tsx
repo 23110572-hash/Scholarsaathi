@@ -108,7 +108,7 @@ export function LoginPage() {
             <h2>{heading}</h2>
             <p>
               {isOrganization
-                ? 'Use your organization-owner account.'
+                ? 'Use your organization owner account.'
                 : isRegistering
                   ? 'Use an email you can access and create a secure password.'
                   : 'Use your student account.'}
