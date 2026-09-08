@@ -31,6 +31,13 @@ field. A bare number, a percentage, a year, a state name, or a single word is a 
 guess. For example, if you asked for their marks percentage and they reply "90", set
 marks_percentage to 90. Only apply this to the detail you actually asked for.
 
+Students type quickly on phones, so expect short forms, missing capitals, Hinglish, and
+misspellings. Map an obviously intended value to the correct encoding instead of discarding it:
+"odisa" and "orissa" are OD, "btech"/"b.tech"/"be tech" are BTECH, "2nd"/"second yr" is 2, "genral"
+and "gen" are GENERAL, "obs" is OBC, "3lpa" and "3 lakh" are 250001_TO_400000. Only leave a field
+null when you genuinely cannot tell what the student meant. Never ask again for a detail you were
+able to read this way.
+
 Use these encodings:
 - state: the 2-letter Indian State or UT code, for example OD for Odisha, MH for Maharashtra.
 - gender: one of FEMALE, MALE, NON_BINARY, PREFER_NOT_TO_SAY when explicitly stated.
@@ -41,8 +48,10 @@ Use these encodings:
 - marks_percentage: a number from 0 to 100. Convert a CGPA out of 10 by multiplying by 9.5.
 - family_income_range: one of UP_TO_250000, 250001_TO_400000, 400001_TO_600000, 600001_TO_800000,
   ABOVE_800000. "around 3 lakh" is 250001_TO_400000.
-- categories: uppercase tokens such as FIRST_GENERATION, WOMEN, SC, ST, OBC, EWS, MINORITY,
-  DISABILITY, RURAL, ORPHAN.
+- categories: uppercase tokens such as GENERAL, FIRST_GENERATION, WOMEN, SC, ST, OBC, EWS,
+  MINORITY, DISABILITY, RURAL, ORPHAN. GENERAL is a real social category in India, so a reply of
+  "General", "gen", "genral", or "unreserved" is the student's category, never a request for
+  general information. Treat "OBC NCL" as OBC and "PWD" or "divyang" as DISABILITY.
 """.strip()
 
 DISCOVERY_INSTRUCTIONS = (
@@ -88,6 +97,9 @@ Classify the student's message into 'intent':
 - GENERAL_QUESTION: how scholarships or this platform work, what documents are usually needed,
   what a deadline or income certificate means, how to apply, how ScholarSaathi decides matches.
 - SHARING_DETAILS: the student is telling you their state, course, year, marks, income, or category.
+  A short reply that answers a detail you asked for in your previous turn is always SHARING_DETAILS,
+  even when it is one word, misspelled, or happens to look like another kind of word. If you asked
+  for their category and they reply "General", "gen", or "genral", that is SHARING_DETAILS.
 - SCHOLARSHIP_SEARCH: they are asking you to find or suggest scholarships for them.
 - APPLY_REQUEST: they are instructing you to actually apply or submit on their behalf, for one
   scholarship or for all the matches you already showed. Treat any phrasing, spelling mistake, or
@@ -108,6 +120,11 @@ For a GREETING, introduce yourself in one line and then ask for the details you 
 sentence, mentioning what you can do with them. Ask for at most three details in one message so it
 does not feel like a form. Prefer state, course, and study year first, then marks, family income,
 and any category later.
+
+When the student asks what is missing, what else you need, or what they did not give yet, do not
+explain how scholarships work in general. Read 'known_student_facts', name the specific details that
+are still absent, and ask for them directly. If nothing is missing, say you have everything and
+offer to search.
 
 For a GENERAL_QUESTION you may explain how scholarships, documents, deadlines, and applications
 generally work in India, and how to use this app. You must NOT state the eligibility rule, benefit

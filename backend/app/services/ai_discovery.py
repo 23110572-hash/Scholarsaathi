@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import uuid
@@ -84,6 +85,111 @@ def _profile_with_extracted_facts(
             values[field] = value
     values["categories"] = list(dict.fromkeys([*profile.categories, *extracted.categories]))
     return DiscoveryProfile(**values)
+
+
+def _missing_eligibility_fields(profile: DiscoveryProfile) -> list[str]:
+    """Detail keys still absent from the profile, in the order they help matching most."""
+    missing = [name for name in _ELIGIBILITY_FIELDS if getattr(profile, name) is None]
+    if not profile.categories:
+        missing.append("categories")
+    return missing
+
+
+def _has_new_facts(extracted: ChatExtractedFacts) -> bool:
+    """True when this turn actually contributed a usable eligibility fact."""
+    if any(getattr(extracted, field) is not None for field in _EXTRACTED_SCALAR_FIELDS):
+        return True
+    return bool(extracted.categories)
+
+
+# Surface forms a student may type when naming a social category, mapped to the canonical
+# token. GENERAL is a real answer in India, not a request for general information, so it must
+# never be read as a general-knowledge question. Short forms and common misspellings are listed
+# because students type quickly; anything close but unlisted is matched fuzzily below.
+_CATEGORY_SURFACE_FORMS = {
+    "GENERAL": "GENERAL",
+    "GEN": "GENERAL",
+    "GENRAL": "GENERAL",
+    "GENARAL": "GENERAL",
+    "GENERAAL": "GENERAL",
+    "GNERAL": "GENERAL",
+    "JENERAL": "GENERAL",
+    "GENERL": "GENERAL",
+    "UR": "GENERAL",
+    "UNRESERVED": "GENERAL",
+    "OPEN": "GENERAL",
+    "SC": "SC",
+    "SCHEDULED_CASTE": "SC",
+    "ST": "ST",
+    "SCHEDULED_TRIBE": "ST",
+    "OBC": "OBC",
+    "OBS": "OBC",
+    "OBC_NCL": "OBC",
+    "OBCNCL": "OBC",
+    "BC": "OBC",
+    "EWS": "EWS",
+    "EWC": "EWS",
+    "MINORITY": "MINORITY",
+    "MINORTY": "MINORITY",
+    "MINORITIY": "MINORITY",
+    "FIRST_GENERATION": "FIRST_GENERATION",
+    "FIRSTGENERATION": "FIRST_GENERATION",
+    "FIRST_GEN": "FIRST_GENERATION",
+    "FIRSTGEN": "FIRST_GENERATION",
+    "1ST_GENERATION": "FIRST_GENERATION",
+    "WOMEN": "WOMEN",
+    "WOMAN": "WOMEN",
+    "GIRL": "WOMEN",
+    "DISABILITY": "DISABILITY",
+    "DISABLED": "DISABILITY",
+    "PWD": "DISABILITY",
+    "DIVYANG": "DISABILITY",
+    "RURAL": "RURAL",
+    "ORPHAN": "ORPHAN",
+}
+# Tokens too short for edit-distance matching to be safe: "SC" is one edit from "ST", and
+# "OBC" from "EWS"-length noise, so these must match exactly after normalization.
+_EXACT_ONLY_CATEGORY_FORMS = frozenset({"SC", "ST", "BC", "UR", "GEN", "OBC", "EWS", "EWC", "OBS"})
+_CATEGORY_FUZZY_CUTOFF = 0.82
+_CATEGORY_FILLER_WORDS = frozenset(
+    {"I", "AM", "IM", "MY", "ME", "IS", "A", "AN", "THE", "FROM", "CATEGORY", "CASTE", "CAST"}
+)
+
+
+def _normalize_category_text(message: str) -> str:
+    collapsed = re.sub(r"[^A-Za-z0-9]+", "_", message).strip("_").upper()
+    words = [word for word in collapsed.split("_") if word and word not in _CATEGORY_FILLER_WORDS]
+    return "_".join(words)
+
+
+def _category_reply_token(message: str | None) -> str | None:
+    """Recover a category from a short reply, tolerating short forms and misspellings.
+
+    The model owns intent classification, but a one-word answer such as "General" or a
+    misspelled "genral" is easily read as a request for general information. That misread
+    silently dropped the student's answer, so the category is also resolved deterministically
+    here. Only short replies are considered, because a longer sentence is a real question.
+    """
+    if not message:
+        return None
+    normalized = _normalize_category_text(message)
+    if not normalized or normalized.count("_") > 2:
+        return None
+
+    exact = _CATEGORY_SURFACE_FORMS.get(normalized)
+    if exact:
+        return exact
+    if normalized in _EXACT_ONLY_CATEGORY_FORMS or len(normalized) < 5:
+        # Too short to correct safely: a single edit turns SC into ST.
+        return None
+
+    fuzzy_pool = [
+        form for form in _CATEGORY_SURFACE_FORMS if form not in _EXACT_ONLY_CATEGORY_FORMS
+    ]
+    close = difflib.get_close_matches(normalized, fuzzy_pool, n=1, cutoff=_CATEGORY_FUZZY_CUTOFF)
+    if not close:
+        return None
+    return _CATEGORY_SURFACE_FORMS[close[0]]
 
 
 def _privacy_discovery_response() -> DiscoveryResponse:
@@ -263,7 +369,14 @@ def _conversation_response(
         assessments=[],
         mode="CONVERSATION",
         intent=parsed.intent,
-        requested_details=parsed.requested_details,
+        # The model may reply without naming what it still needs. Fall back to the real gaps so
+        # a student asking "what did I miss?" always sees the actual outstanding details.
+        requested_details=(
+            parsed.requested_details
+            or _missing_eligibility_fields(_profile_with_extracted_facts(profile, parsed.extracted))[
+                :3
+            ]
+        ),
         suggested_replies=parsed.suggested_replies,
         extracted=_only_new_extracted_facts(profile, parsed.extracted),
     )
@@ -317,6 +430,12 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
         except AICapacityError:
             chat_parsed = None
         if chat_parsed is not None:
+            # Recover a one-word category answer the classifier may have read as a general
+            # question, so the student's reply is never silently discarded.
+            if not chat_parsed.extracted.categories and not profile.categories:
+                recovered = _category_reply_token(profile.message)
+                if recovered:
+                    chat_parsed.extracted.categories = [recovered]
             effective_profile = _profile_with_extracted_facts(profile, chat_parsed.extracted)
 
     # The model owns intent classification. Deterministic code only decides whether we
@@ -342,8 +461,13 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
                 chat_attempted=chat_attempted,
             )
         # Sharing details is an implicit search once the facts are usable, which is why
-        # it is not treated as a conversation-only intent here.
-        wants_matches = chat_parsed.intent in {"SCHOLARSHIP_SEARCH", "SHARING_DETAILS"}
+        # it is not treated as a conversation-only intent here. A turn that supplied a new
+        # fact also refreshes the matches: the student answered a question we asked, so the
+        # results must reflect it even when the intent label came back as something else.
+        wants_matches = chat_parsed.intent in {
+            "SCHOLARSHIP_SEARCH",
+            "SHARING_DETAILS",
+        } or _has_new_facts(chat_parsed.extracted)
         if not wants_matches or not has_facts:
             return _conversation_response(
                 db,
@@ -493,9 +617,7 @@ def discover_scholarships(db: Session, profile: DiscoveryProfile) -> DiscoveryRe
             "structured rules for a complete automatic check."
         )
 
-    missing = [name for name in _ELIGIBILITY_FIELDS if getattr(effective_profile, name) is None]
-    if not effective_profile.categories:
-        missing.append("categories")
+    missing = _missing_eligibility_fields(effective_profile)
 
     return DiscoveryResponse(
         ai_available=bool(settings.openrouter_api_key),
