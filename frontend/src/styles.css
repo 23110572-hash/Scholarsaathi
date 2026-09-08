@@ -3647,3 +3647,11 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
 
 .ai-welcome strong { font-size: 1.1rem; line-height: 1.4; }
 .ai-welcome p { font-size: .82rem; line-height: 1.55; }
+
+/* Gradient hero title clips descenders when the line box is shorter than the glyphs.
+   background-clip: text paints only inside the element box, so "g" in "eligible" was
+   cut off. A taller line box plus bottom padding keeps descenders inside the fill. */
+.hero-title {
+  padding-bottom: 0.12em;
+  line-height: 1.25;
+}
