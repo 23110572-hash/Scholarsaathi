@@ -3550,3 +3550,68 @@ a:focus-visible, button:focus-visible { outline-color: rgba(255, 153, 51, .95); 
   .student-applications-page .application-row > time { display: block; }
   .student-applications-page .application-row > svg { display: none; }
 }
+
+/* Scholarship detail: application requirements readability and containment */
+.detail-page .evidence-column { min-width: 0; }
+.detail-page .application-preview {
+  min-width: 0;
+  max-width: 100%;
+  padding-top: 3rem;
+}
+.detail-page .application-preview h2 {
+  margin-bottom: .75rem;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  line-height: 1.2;
+}
+.detail-page .application-preview > p {
+  max-width: 60rem;
+  margin-bottom: 1.75rem;
+  color: #475569;
+  font-size: 1.25rem;
+  line-height: 1.6;
+}
+.detail-page .application-preview > div {
+  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+.detail-page .application-preview article {
+  min-width: 0;
+  padding: 1.35rem;
+  gap: .45rem;
+}
+.detail-page .application-preview article span { font-size: .78rem; letter-spacing: .08em; }
+.detail-page .application-preview article strong {
+  font-size: 1.3rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.detail-page .application-preview article small {
+  color: #52657a;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* Keep application timeline messages fully readable instead of clipped */
+.application-page .timeline-card li div { min-width: 0; }
+.application-page .timeline-card li p {
+  font-size: .95rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* Point-wise provider answers in the assistant */
+.ai-answer-points {
+  display: grid;
+  padding-left: 1.05rem;
+  margin: .15rem 0 0;
+  gap: .3rem;
+  list-style: disc;
+}
+.ai-answer-points li {
+  color: #3f4a53;
+  font-size: .74rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

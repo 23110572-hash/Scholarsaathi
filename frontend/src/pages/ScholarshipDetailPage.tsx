@@ -180,11 +180,23 @@ export function ScholarshipDetailPage() {
               </article>
             ))}
           </div>
-          <div className="provider-contact-row">
-            <button className="button button-secondary source-button" type="button" onClick={() => openAssistant()}><ChatIcon /> Ask about this scholarship</button>
-          </div>
           {scholarship.application_fields.length > 0 && (
-            <section className="application-preview"><h2>Application requirements</h2><p>Review the information requested before starting.</p><div>{scholarship.application_fields.map((field) => <article key={field.id}><span>{formatToken(field.field_type)}</span><strong>{field.label}</strong><small>{field.required ? 'Required' : 'Optional'}{field.help_text ? ` · ${field.help_text}` : ''}</small></article>)}</div></section>
+            <section className="application-preview">
+              <h2>Application requirements</h2>
+              <p>Review the information requested before starting.</p>
+              <div>
+                {scholarship.application_fields.map((field) => (
+                  <article key={field.id}>
+                    <span>{formatToken(field.field_type)}</span>
+                    <strong>{field.label}</strong>
+                    <small>
+                      {field.required ? 'Required' : 'Optional'}
+                      {field.help_text ? ` · ${field.help_text}` : ''}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
         </div>
       </section>

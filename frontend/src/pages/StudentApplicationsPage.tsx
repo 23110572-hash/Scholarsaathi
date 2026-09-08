@@ -4,8 +4,6 @@ import { ArrowIcon } from '../components/Icons'
 import { api } from '../lib/api'
 import type { ApplicationListItem } from '../types'
 
-const AWAITING_PROVIDER_STATUSES = new Set(['SUBMITTED', 'RESUBMITTED'])
-
 export function StudentApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,31 +36,27 @@ export function StudentApplicationsPage() {
         </div>
       ) : (
         <div className="application-list">
-          {applications.map((application) => {
-            const awaitingProvider = AWAITING_PROVIDER_STATUSES.has(application.status)
-            return (
-              <Link
-                key={application.id}
-                to={`/applications/${application.id}`}
-                className="application-row"
-              >
-                <div className="application-state">
-                  <span className="application-status">
-                    {application.status.replaceAll('_', ' ')}
-                  </span>
-                  {awaitingProvider && <small>Awaiting provider confirmation</small>}
-                </div>
-                <div className="application-copy">
-                  <strong>{application.scholarship_title}</strong>
-                  <small>{application.organization_name}</small>
-                </div>
-                <time dateTime={application.updated_at}>
-                  {new Date(application.updated_at).toLocaleDateString('en-IN')}
-                </time>
-                <ArrowIcon />
-              </Link>
-            )
-          })}
+          {applications.map((application) => (
+            <Link
+              key={application.id}
+              to={`/applications/${application.id}`}
+              className="application-row"
+            >
+              <div className="application-state">
+                <span className="application-status">
+                  {application.status.replaceAll('_', ' ')}
+                </span>
+              </div>
+              <div className="application-copy">
+                <strong>{application.scholarship_title}</strong>
+                <small>{application.organization_name}</small>
+              </div>
+              <time dateTime={application.updated_at}>
+                {new Date(application.updated_at).toLocaleDateString('en-IN')}
+              </time>
+              <ArrowIcon />
+            </Link>
+          ))}
         </div>
       )}
     </main>

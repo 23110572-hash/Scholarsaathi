@@ -349,11 +349,39 @@ function DiscoveryReply({
   )
 }
 
+/** Splits a provider answer into lead-in text and point-wise items the model listed with "- ". */
+function answerBlocks(answer: string) {
+  const lines = answer
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const blocks: Array<{ kind: 'text'; text: string } | { kind: 'list'; items: string[] }> = []
+  for (const line of lines) {
+    const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/)
+    const last = blocks[blocks.length - 1]
+    if (bullet?.[1]) {
+      if (last?.kind === 'list') last.items.push(bullet[1])
+      else blocks.push({ kind: 'list', items: [bullet[1]] })
+    } else {
+      blocks.push({ kind: 'text', text: line })
+    }
+  }
+  return blocks
+}
+
 function QuestionReply({ data }: { data: ScholarshipQuestionResponse }) {
   return (
     <div className="ai-reply-content">
       <span className="ai-answer-label">{questionLabels[data.label]}</span>
-      <p>{data.answer}</p>
+      {answerBlocks(data.answer).map((block, index) =>
+        block.kind === 'list' ? (
+          <ul className="ai-answer-points" key={`list-${index}`}>
+            {block.items.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        ) : (
+          <p key={`text-${index}`}>{block.text}</p>
+        ),
+      )}
       {data.citations.length > 0 && (
         <div className="ai-citations">
           {data.citations.map((citation) => (
